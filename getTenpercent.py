@@ -1,13 +1,9 @@
 #coding:utf8
 __author__ = 'li.li'
-import pandas as pd
-import tushare as ts
-import os
+import Collect_NewStocks
 import pandas as pd
 from pandas import DataFrame
-import sys
-sys.path.append("D:\Money")
-from common import *
+import common
 import os
 import requests
 import time
@@ -102,15 +98,15 @@ class rtMonitor:
             del tmpframe['Unnamed: 0']
             os.remove(os.path.join(self.dir,'%s_10Percent.csv'%i))
             frame_list.append(tmpframe)
-        self.cdate =datetime.date.today().strftime("%Y-%m-%d") 
+        self.cdate =datetime.date.today().strftime("%Y-%m-%d")
         self.ttframe=pd.concat(frame_list,axis=0)
         self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
         self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
         self.ttframe.to_csv(os.path.join(self.dir,'daily_summary_%s.csv'%self.cdate))
-        self.utframe=self.ttframe[self.ttframe.close==self.ttframe.up10]['stcid']
-        self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stcid']
-        self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stcid']
-        self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stcid']
+        self.utframe=self.ttframe[self.ttframe.close>=self.ttframe.up10]['stcid']       ##涨停
+        self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stcid']  ##高点涨停
+        self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stcid']       ##跌停
+        self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stcid']    ##低点跌停
         s1=pd.DataFrame(self.utframe.values)
         s2=pd.DataFrame(self.nuframe.values)
         s3=pd.DataFrame(self.dtframe.values)
@@ -132,8 +128,34 @@ class rtMonitor:
         DT_overMonut=self.overMount(DT_list)
         dicts['DT_Mount']=DT_overMonut
 
-        # 昨日涨跌停，今天收益情况
-        # 连板情况
+        # step 3: generate Add_newStocks, actulZtStocks, freshStocks, openedFreshedStocks
+        print dicts['date']
+        yesterday = common.get_last_date(dicts['date'])
+        yesterday = common.format_date(yesterday,"%Y%m%d")
+        yesResults = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday})
+        freshStocks = []
+        if yesResults.has_key("freshStocks"):
+            freshStocks = yesResults['freshStocks'].split("_")
+
+        ## 新股加入到mongo中，每天刷新一次
+        Collect_NewStocks.fresh_newStockWebsite()
+        todResults = self.mongodb.stock.ZDT_by_date.find_one({"date":dicts['date']})
+        newAddStocks = []
+        if todResults.has_key("Add_newStocks"):
+            newAddStocks = todResults['Add_newStocks'].keys()
+            freshStocks.extend(newAddStocks)
+
+        ## 自然涨停股票
+        dicts['actulZtStocks'] = "_".join([x for x in dicts['ZT_stocks'].split("_") if x not in freshStocks])
+
+        ## 连续涨停的次新股
+        freshStocks = [x for x in freshStocks if x in dicts['ZT_stocks']]
+        freshStocks.extend(newAddStocks)
+        dicts['freshStocks'] = "_".join(list(set(freshStocks)))
+
+        ## 开板次新股
+        dicts['openedFreshedStocks'] = "_".join([x for x in freshStocks if x not in dicts['ZT_stocks'] and x not in newAddStocks])
+
         # finally,write to mongo
         # self.mongodb.stock.ZDT_by_date.insert(dicts)
         self.mongodb.stock.ZDT_by_date.update({"date":dicts['date']},{"$set":dicts},True)
@@ -150,8 +172,8 @@ class rtMonitor:
     def overMount(self,tlist):
         if len(tlist)<1:
             return ""
-        tframe=get_sina_data(tlist)
-        Mlist=[tframe.loc[i,"stcid"] for i in tframe.index.values if volStatus(tframe.loc[i,"stcid"],tframe.loc[i,'date'],tframe.loc[i,'vol'])]
+        tframe=common.get_sina_data(tlist)
+        Mlist=[tframe.loc[i,"stcid"] for i in tframe.index.values if common.volStatus(tframe.loc[i,"stcid"],tframe.loc[i,'date'],tframe.loc[i,'vol'])]
         return "_".join(Mlist)
 
 
@@ -175,7 +197,7 @@ class rtMonitor:
         dicts['DT_stocks']="_".join(DT_list)
         dicts['HD_stocks']="_".join(HD_list)
         dicts['LD_stocks']="_".join(LD_list)
-        dicts['date']=format_date(self.cdate,"%Y%m%d")
+        dicts['date']=common.format_date(self.cdate,"%Y%m%d")
         return [dicts,ZT_list,DT_list,HD_list,LD_list]
 
     def get_statistic(self,tframe):
@@ -195,5 +217,4 @@ class rtMonitor:
 
 if __name__=='__main__':
     z=rtMonitor()
-    dir = 'D:\Money\Realtime'
     z.runBatch()

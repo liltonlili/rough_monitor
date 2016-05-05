@@ -1,7 +1,6 @@
 ##coding:utf-8
 import sys
-sys.path.append("D:\Money")
-from common import *
+import common
 import pandas as pd
 import os
 import datetime
@@ -39,34 +38,35 @@ def update_Mongo(stockId,stockDate):
         return 1
 
 
+def fresh_newStockWebsite():
+    pages = [1]
+    mongoUrl = "localhost"
+    global mongodb
+    mongodb = pymongo.MongoClient(mongoUrl)
+    for page in pages:
+        url = "http://data.cfi.cn/cfidata.aspx?sortfd=&sortway=&curpage=%s&fr=content&ndk=A0A1934A1939A1946A1982&xztj=&mystockt="%page
+        print "scan new stock page %s"%page
+        for i in range(0,5):
+            r = requests.get(url=url)
+            if r.status_code == 200:
+                break
+            else:
+                time.sleep(2)
+        print "connected page %s successfully"%page
+        content = r.content
 
-pages = range(1,35)
-mongoUrl = "localhost"
-mongodb = pymongo.MongoClient(mongoUrl)
-for page in pages:
-    url = "http://data.cfi.cn/cfidata.aspx?sortfd=&sortway=&curpage=%s&fr=content&ndk=A0A1934A1939A1946A1982&xztj=&mystockt="%page
-    print "begin get page %s"%page
-    for i in range(0,5):
-        r = requests.get(url=url)
-        if r.status_code == 200:
-            break
-        else:
-            time.sleep(2)
-    print "connected %s successfully"%page
-    content = r.content
+        try:
+            [stock_ids,stock_dates,stock_types] = parse_content(content)
+        except Exception,e:
+            print e
 
-    try:
-        [stock_ids,stock_dates,stock_types] = parse_content(content)
-    except Exception,e:
-        print e
-
-    for i in range(len(stock_ids)):
-        stockId = stock_ids[i].strip()
-        stockDate = stock_dates[i].strip()
-        if stockDate == "--":
-            continue
-        else:
-            update_Mongo(stockId,stockDate)
+        for i in range(len(stock_ids)):
+            stockId = stock_ids[i].strip()
+            stockDate = stock_dates[i].strip()
+            if stockDate == "--":
+                continue
+            else:
+                update_Mongo(stockId,stockDate)
 
 
 

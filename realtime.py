@@ -16,7 +16,7 @@ class rtMonitor:
         dir = 'D:\Money\lilton_code'
         zs=ts.get_today_all()
         if len(zs) > 1000:
-        	zs.to_csv(os.path.join(dir,'stock_list.csv'),encoding='utf8')
+            zs.to_csv(os.path.join(dir,'stock_list.csv'),encoding='utf8')
         stock_list=pd.read_csv(os.path.join(dir,'stock_list.csv'))
         stock_list=stock_list['code'].values
         stock_lists=[]
@@ -109,7 +109,7 @@ class rtMonitor:
         timestamp=tframe.loc[0,'time'].values[0]
         tframe['upercent10']=(tframe['preclose'].astype(np.float64)*1.1).round(2)
         tframe['dpercent10']=(tframe['preclose'].astype(np.float64)*0.9).round(2)
-        uframe=tframe[tframe.close==tframe.upercent10]
+        uframe=tframe[tframe.close>=tframe.upercent10]
         dframe=tframe[tframe.close==tframe.dpercent10]
         p5frame=tframe[tframe.rate>=5]
         n5frame=tframe[tframe.rate<=-5]
