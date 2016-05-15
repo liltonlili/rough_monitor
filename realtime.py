@@ -14,9 +14,12 @@ frame_list=[]
 class rtMonitor:
     def __init__(self):
         dir = 'D:\Money\lilton_code'
-        zs=ts.get_today_all()
-        if len(zs) > 1000:
-            zs.to_csv(os.path.join(dir,'stock_list.csv'),encoding='utf8')
+        while(True):
+            zs=ts.get_today_all()
+            if len(zs) > 1000:
+                zs.to_csv(os.path.join(dir,'stock_list.csv'),encoding='utf8')
+                break
+            time.sleep(5)
         stock_list=pd.read_csv(os.path.join(dir,'stock_list.csv'))
         stock_list=stock_list['code'].values
         stock_lists=[]
@@ -79,6 +82,13 @@ class rtMonitor:
 
 
     def runBatch(self):
+
+        ttime=time.localtime()
+        thour=ttime.tm_hour
+        tmin=ttime.tm_min
+        if (thour == 10 and tmin < 3) or (thour == 11 and tmin < 3) or (thour == 13 and tmin < 10 and tmin >= 8):
+            self.__init__()
+
         timestamp=time.strftime("%X",time.localtime())
 #         i = 0
 #         self.get_data(self.stock_lists[i*200:(i+1)*200],timestamp)

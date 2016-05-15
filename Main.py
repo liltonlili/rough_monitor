@@ -263,8 +263,8 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    # MP.update_ZDT_stocksNum_ALL(dateStart="20100101")
-    # MP.update_freshStocks(dateStart="20100101")
+    MP.update_ZDT_stocksNum_ALL(dateEq="20160506")
+    MP.update_freshStocks(dateEq="20160506")
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -279,16 +279,5 @@ if __name__ == "__main__":
     #         MP.update_ZDT_stocksNum([],[date])
             # print date
 
-    MP.update_ZDT_contsNum(dateStart = "20100107")
-    # MP.update_ZDT_yesterday(dateStart = "20150818")
-    # step 1
-    ## 在指定日期区间内，找到一字涨停的新股，更新到mongo中的freshStocks, openedFreshStocks, actulZtStocks
-    # def update_freshStocks(self,dateEq='19890928',dateStart = '19890928', dateEnd = '19890928'):
-
-# step 2
-# 给定日期区间内，计算连续涨跌停个数，并去重zt_stocks, dt_stocks, 重新计算个数
-# def update_ZDT_contsNum(self, dateEq='19890928',dateStart = '19890928', dateEnd = '19890928'):
-
-# step 2
-# 从指定日期开始，计算meat,hole, 以及pre的情况
-# def update_ZDT_yesterday(self,dateEq='19890928',dateStart = '19890928', dateEnd = '19890928'):
+    MP.update_ZDT_contsNum(dateEq="20160506")
+    MP.update_ZDT_yesterday(dateEq="20160506")

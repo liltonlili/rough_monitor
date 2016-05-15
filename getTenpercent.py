@@ -155,9 +155,6 @@ class rtMonitor:
 
         ## 开板次新股
         dicts['openedFreshedStocks'] = "_".join([x for x in freshStocks if x not in dicts['ZT_stocks'] and x not in newAddStocks])
-
-        # finally,write to mongo
-        # self.mongodb.stock.ZDT_by_date.insert(dicts)
         self.mongodb.stock.ZDT_by_date.update({"date":dicts['date']},{"$set":dicts},True)
 
 
@@ -191,6 +188,11 @@ class rtMonitor:
         DT_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['dn10'].values if x>0]
         HD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['high10'].values if x>0]
         LD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['low10'].values if x>0]
+        ZT_list = list(set(ZT_list))
+        DT_list = list(set(DT_list))
+        HD_list = list(set(HD_list))
+        LD_list = list(set(LD_list))
+
         dicts['ZT_num']=len(ZT_list)
         dicts['DT_num']=len(DT_list)
         dicts['ZT_stocks']="_".join(ZT_list)

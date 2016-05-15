@@ -30,7 +30,7 @@ class top_statistic:
         ## get info of yesterday
         mongo_url = "localhost"
         self.mongodb = pymongo.MongoClient(mongo_url)
-        self.up10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['ZT_stocks'].split("_")
+        self.up10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['actulZtStocks'].split("_")
         self.hi10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['HD_stocks'].split("_")
         self.low10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['LD_stocks'].split("_")
         self.dn10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['DT_stocks'].split("_")
@@ -191,7 +191,7 @@ class top_statistic:
     def genCsv(self):
         ##生成daydayup.csv,用来复盘
         detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
-        ztStocks = detailinfos['ZT_stocks'].split("_")
+        ztStocks = detailinfos['actulZtStocks'].split("_")
         dtStocks = detailinfos['DT_stocks'].split("_")
         meatStocks = detailinfos['meatList'].split("_")
         holeStocks = detailinfos['holeList'].split("_")
