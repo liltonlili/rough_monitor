@@ -86,8 +86,77 @@ from HTMLParser import HTMLParser
 
 
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+#
+# fig = plt.figure()
+# ax1 = fig.add_subplot(221)
+# print "abc"
 
-fig = plt.figure()
-ax1 = fig.add_subplot(221)
-print "abc"
+
+# import pymongo
+# mongoUrl = "localhost"
+# mongodb = pymongo.MongoClient(mongoUrl)
+# results = mongodb.stock.ZDT_by_date.find({"date":{"$gt":"20160401"},"openedFreshStocks":{"$exists":True}})
+# openedResultsFile = open("./opendResults.csv","w")
+# for result in results:
+#     array = result['openedFreshStocks'].split("_")
+#     print result['date']
+#     if len(array)<1:
+#         continue
+#     openedResultsFile.write("%s,%s\n"%(result['date'],result['openedFreshStocks']))
+#
+# openedResultsFile.close()
+# mongodb.close()
+
+
+# # -*- coding: utf-8 -*-
+# import time, sys
+# # 判断python的版本然后import对应的模块
+# if sys.version < '3':
+#     from Tkinter import *
+# else:
+#     from tkinter import *
+#
+# mydelaymin = 3 #窗口提示的延迟时间，以分钟计
+#
+# #------------------def-------------------
+# def showMessage():
+#     #show reminder message window
+#     root = Tk()  #建立根窗口
+#     #root.minsize(500, 200)   #定义窗口的大小
+#     #root.maxsize(1000, 400)  #不过定义窗口这个功能我没有使用
+#     root.withdraw()  #hide window
+#     #获取屏幕的宽度和高度，并且在高度上考虑到底部的任务栏，为了是弹出的窗口在屏幕中间
+#     screenwidth = root.winfo_screenwidth()
+#     screenheight = root.winfo_screenheight() - 100
+#     root.resizable(False,False)
+#     #添加组件
+#     root.title("Warning!!")
+#     frame = Frame(root, relief=RIDGE, borderwidth=3)
+#     frame.pack(fill=BOTH, expand=1) #pack() 放置组件若没有则组件不会显示
+#     #窗口显示的文字、并设置字体、字号
+#     label = Label(frame, text="You have been working 30 minutes! Please have a break!!", \
+#         font="Monotype\ Corsiva -20 bold")
+#     label.pack(fill=BOTH, expand=1)
+#     #按钮的设置
+#     button = Button(frame, text="OK", font="Cooper -25 bold", fg="red", command=root.destroy)
+#     button.pack(side=BOTTOM)
+#
+#     root.update_idletasks()
+#     root.deiconify() #now the window size was calculated
+#     root.withdraw() #hide the window again 防止窗口出现被拖动的感觉 具体原理未知？
+#     root.geometry('%sx%s+%s+%s' % (root.winfo_width() + 10, root.winfo_height() + 10,
+#         (screenwidth - root.winfo_width())/2, (screenheight - root.winfo_height())/2))
+#     root.deiconify()
+#     root.mainloop()
+#
+# #showMessage()
+#
+#
+# while True:
+#     time.sleep(mydelaymin) #参数为秒
+#     showMessage()
+
+TestMap = {1:0, 2:0, 3:1, 4:1}
+for key in TestMap:
+    TestMap.pop(key)

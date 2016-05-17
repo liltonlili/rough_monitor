@@ -10,6 +10,8 @@ import requests
 import pymongo
 from pandas import DataFrame,Series
 import matplotlib.pyplot as plt
+from Tkinter import *
+from tkMessageBox import *
 
 mongourl = "localhost"
 global mongodb
@@ -327,16 +329,16 @@ def volStatus(stoc,date,vol):
 
 #slist 为字符串list，可以包含sh，也可以不包含,位数可以是6位，也可以不为6位
 # output
-#        time        date   stcid  close  preclose   high    low  vol  amount  rate
-# 0  11:15:12  2016-04-07  002785  27.20     25.08  27.50  25.00  115516   3.01   8.45
-# 1  11:15:12  2016-04-07  603866  33.36     32.94  33.75  32.95   34952   1.17   1.28
+#        time        date   stcid  close  preclose   high    low  vol  amount  rate    name
+# 0  11:15:12  2016-04-07  002785  27.20     25.08  27.50  25.00  115516   3.01   8.45    中国重工
+# 1  11:15:12  2016-04-07  603866  33.36     32.94  33.75  32.95   34952   1.17   1.28    招商银行
 def get_sina_data(slist):
     stoc=slist[0]
     if stoc[:2] in ["sh","sz"]:
         pass
     else:
         slist=[str(x) if (len(str(x))==6) else'0'*(6-len(str(x)))+str(x) for x in slist]
-        slist=["sh"+str(x) if str(x)[:3] in ["600","900"] else "sz"+str(x) for x in slist]
+        slist=["sh"+str(x) if str(x)[:2] in ["60","90"] else "sz"+str(x) for x in slist]
     str_list=",".join(slist)
     url = "http://hq.sinajs.cn/list=%s"%str_list
     #     print url
@@ -360,6 +362,7 @@ def parse_content(content,timestamp=time.strftime("%X",time.localtime())):
             continue
         stockid = item_array[0][14:20]
         stockid = item_array[0].split('=')[0].split('str_')[1][2:]
+        stockname = item_array[0].split("=")[1].replace('"','')
         open = item_array[1]
         close = item_array[3]
         preclose = item_array[2]
@@ -374,6 +377,7 @@ def parse_content(content,timestamp=time.strftime("%X",time.localtime())):
         Inframe.loc[i,'time']=timestamp
         Inframe.loc[i,'date']=datetime.date.today()
         Inframe.loc[i,'stcid']=stockid
+        Inframe.loc[i,'name']=stockname
         Inframe.loc[i,'close']=round(float(close),2)
         Inframe.loc[i,'preclose']=round(float(preclose),2)
         Inframe.loc[i,'high']=round(float(high),2)
@@ -587,3 +591,23 @@ def QueryStockMap(id='',name=''):
             return [0,0]
     else:
         return [0,0]
+
+# 根据条件，对stockList中的股票进行弹窗提示，返回符合条件的List,股票代码
+def WindowShow(stockList, operate, number, message):
+    result = set()
+    curframe = get_sina_data(stockList)
+    number = float(number)
+    if "g" in operate:
+        tarframe = curframe[curframe.rate >= number]
+    elif "l" in operate:
+        tarframe = curframe[curframe.rate <= number]
+
+    if len(tarframe) < 1:
+        return result
+
+    telllist = tarframe.stcid.values
+    tellname = tarframe.name.values
+    tellstr = "_".join(telllist)
+    tellnamestr = "_".join(tellname)
+    showinfo(message, "---- %s ------\n%s\n%s" % (message,tellstr, tellnamestr))
+    return telllist
