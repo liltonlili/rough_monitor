@@ -1,0 +1,24 @@
+[loggers]
+keys=root
+
+[handlers]
+keys=rotatingFileHandler
+
+[formatters]
+keys=simpleFmt
+
+[logger_root]
+level=INFO
+handlers=rotatingFileHandler
+qualname=root
+propagate=0
+
+[handler_rotatingFileHandler]
+class=handlers.RotatingFileHandler
+level=INFO
+formatter=simpleFmt
+args=("%(logdir)s/tgb.log", "a", 64*1024*1024, 80, "utf8")
+
+[formatter_simpleFmt]
+format=%(asctime)s [%(levelname)s] %(threadName)s Line:%(lineno)d - %(message)s
+datefmt=%m-%d-%Y %H:%M:%S

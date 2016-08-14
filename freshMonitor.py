@@ -9,7 +9,7 @@ from Tkinter import *
 from tkMessageBox import *
 import time
 
-multiprocessing.freeze_support()
+# multiprocessing.freeze_support()
 mongoUrl = "localhost"
 today = datetime.date.today().strftime("%Y%m%d")
 yesToday = common.get_last_date(today)
@@ -25,8 +25,6 @@ lastFrame['ZT_PRICE']=lastFrame['ZT_PRICE'].round(decimals=2)
 lastFrame.set_index('TICKER_SYMBOL',inplace=True)
 lastFrame = lastFrame['ZT_PRICE']
 excludeList = []
-root = Tk()
-root.withdraw()  #hide window
 
 while(True):
 
@@ -52,13 +50,11 @@ while(True):
     tellName = buFrame.name.values
     tellStr = "_".join(tellList)
     tellNameStr = "_".join(tellName)
-    showinfo("开班啦","%s\n%s"%(tellStr,tellNameStr))
-
+    common.showinfos(u"开班啦\n%s\n%s"%(tellStr,tellNameStr))
     excludeList.extend(tellList)
     freshList = [x for x in freshList if x not in excludeList]
 
     if len(freshList) < 1:
         break
 
-root.destroy()
 print "Today's monitor is done"

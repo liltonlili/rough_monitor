@@ -117,6 +117,7 @@ class rtMonitor:
 
     def get_statistic(self,tframe):
         timestamp=tframe.loc[0,'time'].values[0]
+        tframe = tframe[tframe.rate > -100]
         tframe['upercent10']=(tframe['preclose'].astype(np.float64)*1.1).round(2)
         tframe['dpercent10']=(tframe['preclose'].astype(np.float64)*0.9).round(2)
         uframe=tframe[tframe.close>=tframe.upercent10]

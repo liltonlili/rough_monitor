@@ -13,7 +13,7 @@ mongo_url = "localhost"
 mongodb = pymongo.MongoClient(mongo_url)
 
 date_str=datetime.date.today().strftime("%Y%m%d")
-# date_str = "20160511"
+# date_str = "20160810"
 today_dict={"date":date_str}
 
 ## my record

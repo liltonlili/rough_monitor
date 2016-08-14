@@ -99,6 +99,7 @@ class rtMonitor:
             os.remove(os.path.join(self.dir,'%s_10Percent.csv'%i))
             frame_list.append(tmpframe)
         self.cdate =datetime.date.today().strftime("%Y-%m-%d")
+        # self.cdate = "2016-05-20"
         self.ttframe=pd.concat(frame_list,axis=0)
         self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
         self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
@@ -204,6 +205,7 @@ class rtMonitor:
 
     def get_statistic(self,tframe):
         timestamp=tframe.loc[0,'time'].values[0]
+        tframe = tframe[tframe.rate > -100]
         tframe['upercent10']=(tframe['preclose'].astype(np.float64)*1.1).round(2)
         tframe['dpercent10']=(tframe['preclose'].astype(np.float64)*0.9).round(2)
         uframe=tframe[tframe.close==tframe.upercent10]

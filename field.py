@@ -54,7 +54,7 @@ if __name__ == "__main__":
     monitor = field()
     # monitor.showField()
     # monitor.queryField(u"猪肉")
-    monitor.insertStock(['300100'],u"无人驾驶")
-    monitor.queryField(u"无人驾驶")
+    monitor.insertStock(['300368'],u"区块链")
+    monitor.queryField(u"区块链")
 
     # print common.QueryStockMap(name="酒鬼酒")

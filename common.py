@@ -12,6 +12,8 @@ from pandas import DataFrame,Series
 import matplotlib.pyplot as plt
 from Tkinter import *
 from tkMessageBox import *
+import Tkinter as tk
+import json
 
 mongourl = "localhost"
 global mongodb
@@ -24,13 +26,16 @@ def connectdb():
     mydbs=mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
     mydb = mysqldb({'host': '10.21.232.43', 'user': 'app_gaea_ro', 'pw': 'Welcome20150416', 'db': 'MarketDataL1', 'port': 5029})  ##分笔，分钟级
     dydb  = mysqldb({'host': 'db-datayesdb.wmcloud-qa.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdbp', 'port': 3313})
+    cardb = mysqldb({'host': 'db-news.wmcloud-stg.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'news', 'port': 3310})
+    souhudbs = mysqldb({'host': 'db-datayesdb.wmcloud-qa.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdb', 'port': 3313})
+    souhudbi = mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
     # localdb = mysqldb({'host': '127.0.0.1', 'user': 'root', 'pw': '', 'db': 'stock', 'port': 3306})
     localdb = None
-    return (mydbs,mydb,dydb,localdb)
+    return (mydbs,mydb,dydb,localdb,cardb,souhudbs,souhudbi)
 
 class mysqldata:
     def __init__(self):
-        (self.mydbs,self.mydb,self.dydb,self.localdb)=connectdb()
+        (self.mydbs,self.mydb,self.dydb,self.localdb,self.cardb,self.souhudbs,self.souhudbi)=connectdb()
 
     def dydbs_query(self,sqlquery):
         return pd.read_sql(sqlquery,con=self.mydbs.db)
@@ -44,6 +49,14 @@ class mysqldata:
     def localdb_query(self,sqlquery):
         return pd.read_sql(sqlquery,con=self.localdb.db)
 
+    def car_query(self,sqlquery):
+        return pd.read_sql(sqlquery,con=self.cardb.db)
+
+    def souhus_query(self,sqlquery):
+        return pd.read_sql(sqlquery,con=self.souhudbs.db)
+
+    def souhui_query(self,sqlquery):
+        return pd.read_sql(sqlquery,con=self.souhudbi.db)
     ## stockid,stockname,concept1,concept2,concept3,concept4,concept5,concept6
     def generate_localdb_query(self,*args):
         id=args[0]
@@ -133,6 +146,21 @@ class gm_date:
 
 
 
+
+
+## 根据起始年月和终止年月，得到日期列表
+## ["2015/01/01",'2015/01/02",...]
+def getDate(startdate,enddate):
+    startdate = format_date(startdate,"%Y/%m/%d")
+    enddate = format_date(enddate,"%Y/%m/%d")
+    calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+    del calframe['0']
+    calframe.columns=['Time']
+    calframe=calframe[(calframe.Time>=startdate) & (calframe.Time<=enddate)]
+    calList=calframe['Time'].values
+    return list(calList)
+
+
 ## 输入格式不限
 ## 根据股票代码和日期获取交易数据
 ## 如果stock_list长度为0，则选出所有股票
@@ -154,11 +182,11 @@ def get_mysqlData(stock_list,date_list):
     table="vmkt_equd"
     if len(stock_list) > 0:
         stock_list = str(stock_list).replace("[","(").replace("]",")")
-        query = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE " \
+        query = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE, ACT_PRE_CLOSE_PRICE " \
                 "from %s where TICKER_SYMBOL in %s and TRADE_DATE in %s"%(table,stock_list, date_list)
     else:
-        query = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE " \
-                "from %s where TRADE_DATE in %s"%(table,date_list)
+        query = 'SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE, ACT_PRE_CLOSE_PRICE  ' \
+                'from %s where TRADE_DATE in %s and TICKER_SYMBOL < "700000" '%(table,date_list)
     dataFrame = mysqldb.dydb_query(query)
     return dataFrame
 
@@ -339,6 +367,21 @@ def get_sina_data(slist):
     else:
         slist=[str(x) if (len(str(x))==6) else'0'*(6-len(str(x)))+str(x) for x in slist]
         slist=["sh"+str(x) if str(x)[:2] in ["60","90"] else "sz"+str(x) for x in slist]
+    aframe = pd.DataFrame()
+    if len(slist) > 200:
+        for i in range(0,len(slist)/200+1):
+            if i != len(slist)/200:
+                tmpslist = slist[200*i:200*(i+1)]
+            else:
+                tmpslist = slist[200*i:]
+
+            tmpframe = get_little_sina_data(tmpslist)
+            aframe = pd.concat([aframe,tmpframe],axis=0)
+    else:
+        aframe = get_little_sina_data(slist)
+    return aframe
+
+def get_little_sina_data(slist):
     str_list=",".join(slist)
     url = "http://hq.sinajs.cn/list=%s"%str_list
     #     print url
@@ -385,6 +428,7 @@ def parse_content(content,timestamp=time.strftime("%X",time.localtime())):
         Inframe.loc[i,'vol']=round(float(vol),0)
         Inframe.loc[i,'amount']=round(float(amount),0)
         i+=1
+
     Inframe['rate']=100*(Inframe['close'].astype(np.float64)-Inframe['preclose'].astype(np.float64))/Inframe['preclose'].astype(np.float64)
     Inframe['rate']=Inframe['rate'].round(decimals=2)
     # Inframe['hate']=100*(Inframe['high'].astype(np.float64)-Inframe['preclose'].astype(np.float64))/Inframe['preclose'].astype(np.float64)
@@ -609,5 +653,91 @@ def WindowShow(stockList, operate, number, message):
     tellname = tarframe.name.values
     tellstr = "_".join(telllist)
     tellnamestr = "_".join(tellname)
-    showinfo(message, "---- %s ------\n%s\n%s" % (message,tellstr, tellnamestr))
+    # showinfo(message, "---- %s ------\n%s\n%s" % (message,tellstr, tellnamestr))
+    showinfos("---- %s ------\n\n%s\n\n%s" % (message,tellstr, tellnamestr))
     return telllist
+
+def showinfos(message):
+    root = tk.Tk()
+    # root.withdraw()
+    root.title("Say Hello")
+    label = tk.Label(root, text=message)
+    label.pack(side="top", fill="both", expand=True, padx=20, pady=20)
+    button = tk.Button(root, text="OK", command=lambda: root.destroy())
+    button.pack(side="bottom", fill="none", expand=True)
+    root.mainloop()
+    print "will return"
+
+
+def get_realtime_news(stock):
+    count = 3
+    news = ""
+    r = requests.get("http://www.yuncaijing.com/stock/get_line/"+stock)
+    while r.status_code != 200 or count < 0:
+        r = requests.get("http://www.yuncaijing.com/stock/get_line/"+stock)
+        time.sleep(5)
+        count -= 1
+    if r.status_code != 200:
+        return news
+    contents = json.loads(r.content)
+    jsonContent = contents['data']['lEvtNews']
+    news = parse_news(jsonContent)
+    return news
+
+def get_hist_news(stock):
+    count = 10
+    news = ""
+    r = requests.get("http://www.yuncaijing.com/stock/get_kline/"+stock)
+    while r.status_code != 200 or count < 0:
+        r = requests.get("http://www.yuncaijing.com/stock/get_kline/"+stock)
+        time.sleep(5)
+        count -= 1
+    contents = json.loads(r.content)
+    jsonContent = contents['data']['kEvtNews']
+    news = parse_news(jsonContent)
+    return news
+
+def parse_news(jsonContent):
+    news = ""
+    if jsonContent is None:
+        return news
+    count = 5
+    try:
+        keys = jsonContent.keys()
+        keys.sort()
+        for key in keys:
+            if count < 1:
+                break
+            # news = news + "%s %s, %s\n" % (jsonContent[key]['date'], jsonContent[key]['time'], jsonContent[key]['title'])
+            news = news + "%s, %s\n" % (jsonContent[key]['day'], jsonContent[key]['title'])
+            count -= 1
+    except:
+        for dictContent in jsonContent:
+            if count < 1:
+                break
+            news += "%s, %s\n" % (dictContent['day'].replace("<kbd>","").replace("<\\/kbd>",""), dictContent['title'])
+            count -= 1
+    return news
+
+def get_latest_news(stock):
+    stock = '0'*(6-len(stock))+stock
+    count = 10
+    print "get news for %s" % stock
+    real_content = ''
+    hist_content = ''
+    # tmp
+    # return ""
+    try:
+        # 首先看实时新闻
+        real_content = get_realtime_news(stock)
+    except:
+        real_content = 'no valid news\n'
+
+    try:
+        # 再看历史新闻
+        hist_content = get_hist_news(stock)
+    except Exception,err:
+        hist_content = 'no valid news\n'
+
+    news = real_content + hist_content
+    return news

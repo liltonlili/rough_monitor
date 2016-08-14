@@ -203,6 +203,10 @@ def study_plot(tmp_array,dirs):
         zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证指数"'%(table,endDate)
         sh = common.get_mydb_sqlquery(zssql)
 
+    ##临时增加，需要保存数据
+    tmp_dir = "D:\Money\lilton_code\Market_Mode\study_fresh_fail_Module\data"
+    dtv.to_csv(os.path.join(tmp_dir,"%s_%s.csv"%(ddate,code)),encoding='utf8')
+
 
     ##日线，daydir
     fig1 = plt.figure(figsize=[12,8])
@@ -216,21 +220,23 @@ def study_plot(tmp_array,dirs):
     ax2 = fig1.add_subplot(212)
     plot_candlestick(idx,ax2,point =10,mount_flag = 1)
 
-    plt.savefig(os.path.join(daydir,"%s_%s_%s.pdf"%(ddate,direction,code)),dpi=300)
+    # plt.savefig(os.path.join(daydir,"%s_%s_%s.pdf"%(ddate,direction,code)),dpi=300)
     plt.savefig(os.path.join(daydir,"%s_%s_%s.png"%(ddate,direction,code)),dpi=300)
     plt.close()
 
     ##分时图,分钟线，在dir/mins
     fig2 = plt.figure(figsize=(12,8))
     ax3 = fig2.add_subplot(211)
+
+    [name,tmp_id]=common.QueryStockMap(id=code)
     plt.title("%s"%code)
     plot_dealDetail(dtv,ax3,time=dtime,direction=direction,mount_flag=1)
 
     ax4 = fig2.add_subplot(212)
     plot_dealDetail(sh,ax4,time=dtime,direction=direction,mount_flag=1)
 
-    plt.savefig(os.path.join(minsdir,"%s_%s_%s.pdf"%(ddate,direction,code)),dpi=300)
-    plt.savefig(os.path.join(minsdir,"%s_%s_%s.png"%(ddate,direction,code)),dpi=300)
+    # plt.savefig(os.path.join(minsdir,"%s_%s_%s_%s.pdf"%(ddate,direction,code,name)),dpi=300)
+    plt.savefig(os.path.join(minsdir,"%s_%s_%s_%s.png"%(ddate,direction,code,name)),dpi=300)
     plt.close()
 
     # #两者都有，在dir/both
@@ -241,43 +247,48 @@ def study_plot(tmp_array,dirs):
 
 
 
+def main():
+    # read_dir = "D:\Money\lilton_code\Market_Mode\learnModule"
+    read_dir = "D:\Money\lilton_code\Market_Mode\other"
+    read_file = "other.csv"
 
-read_dir = "D:\Money\lilton_code\Market_Mode\learnModule"
-read_file = "AH_2015.csv"
+    ##read_content format
+    # 成交日期	成交时间	证券代码	证券名称	操作	成交数量	成交均价	成交金额	发生金额	本次金额
+    # read_columns=['date','time','code','name','direction','amount','price','cjje','fsje','bcje','null','null']
+    read_columns=['date','code','name','direction','price','cjje','fsje','bcje']
+    dframe=pd.read_csv(os.path.join(read_dir,read_file),encoding='gbk')
+    dframe.columns=read_columns
+    # dframe.dropna(inplace=True)
 
-##read_content format
-# 成交日期	成交时间	证券代码	证券名称	操作	成交数量	成交均价	成交金额	发生金额	本次金额
-read_columns=['date','time','code','name','direction','amount','price','cjje','fsje','bcje','null','null']
-dframe=pd.read_csv(os.path.join(read_dir,read_file),encoding='gbk')
-dframe.columns=read_columns
-# dframe.dropna(inplace=True)
+    exception_log = open(os.path.join("D:\Money\lilton_code\Market_Mode\learnModule","exception.log"),'w')
+    plot_dir = "D:\Money\lilton_code\Market_Mode\other\%s"%(read_file.replace(".csv",""))
 
-exception_log = open(os.path.join("D:\Money\lilton_code\Market_Mode\learnModule","exception.log"),'w')
-plot_dir = "D:\Money\lilton_code\Market_Mode\learnModule\%s"%(read_file.replace(".csv",""))
-# for date in np.unique(dframe.date.values):
-for date in [20150113,20150302,20150312,20150506,20150511,20150713,20150714,20150729,20150807,20150921,20150922,20150923,20150924,20150925,20150928,20150929,20150930,20151008]:
-    try:
-        date = int(date)
-        # if date < 20150201:
-        #     continue
-        date = 20150302
-        #创建文件夹
-        store_dir = "%s/%s"%(plot_dir,date)
-        if os.path.exists(store_dir):
-            pass
-        else:
-            os.mkdir(store_dir)
+    for date in np.unique(dframe.date.values):
+    # for date in [20150113,20150302,20150312,20150506,20150511,20150713,20150714,20150729,20150807,20150921,20150922,20150923,20150924,20150925,20150928,20150929,20150930,20151008]:
+        try:
+            date = int(date)
+            # if date < 20150201:
+            #     continue
+            # date = 20150302
+            #创建文件夹
+            store_dir = "%s/%s"%(plot_dir,date)
+            # print store_dir
+            if os.path.exists(store_dir):
+                pass
+            else:
+                os.mkdir(store_dir)
 
-        ##逐个画图
-        todayframe = dframe[dframe.date==date]
-        for index in todayframe.index.values:
-            tmp_array = [date,todayframe.loc[index,'time'],todayframe.loc[index,'code'],
-                         todayframe.loc[index,'direction'],todayframe.loc[index,'price']]
-            study_plot(tmp_array,store_dir)
-            print '%s,%s ...'%(date,todayframe.loc[index,'code'])
-        print "\n#%s finished"%date
-    except Exception,e:
-        print "Exceptions: %s, in %s"%(e,date)
-        exception_log.write("Exceptions: %s, in %s"%(e,date))
-    # break
-exception_log.close()
+            ##逐个画图
+            todayframe = dframe[dframe.date==date]
+            for index in todayframe.index.values:
+                todayframe.loc[index,'time'] = "10:00:00"
+                tmp_array = [date,todayframe.loc[index,'time'],todayframe.loc[index,'code'],
+                             todayframe.loc[index,'direction'],todayframe.loc[index,'price']]
+                study_plot(tmp_array,store_dir)
+                print '%s,%s ...'%(date,todayframe.loc[index,'code'])
+            print "\n#%s finished"%date
+        except Exception,e:
+            print "Exceptions: %s, in %s"%(e,date)
+            exception_log.write("Exceptions: %s, in %s"%(e,date))
+        # break
+    exception_log.close()

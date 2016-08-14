@@ -16,6 +16,8 @@ class top_statistic:
     def __init__(self):
         cday = datetime.date.today().strftime('%Y/%m/%d')
         self.today = datetime.date.today().strftime('%Y%m%d')
+        # cday = "2016/05/20"
+        # self.today = "20160520"
         calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
         del calframe['0']
         calframe.columns=['Time']
@@ -161,7 +163,7 @@ class top_statistic:
                 Sframe.loc[self.count,'hposr']=1000
                 Sframe.loc[self.count,'hmean']=1000
 
-            if (thour > 15) or (thour == 15 and tmin > 7):
+            if (thour > 15) or (thour == 15 and tmin > 10):
                 while not self.mongodb.stock.ZDT_by_date.find({"date":self.today}):
                     time.sleep(60)
 
@@ -204,6 +206,7 @@ class top_statistic:
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='ZT'
             Aframe.loc[i,'desc']='record'
+            Aframe.loc[i,'news'] = common.get_latest_news(ztStock)
             i+=1
 
         for hdStock in hdStocks:
@@ -211,6 +214,7 @@ class top_statistic:
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='HD'
             Aframe.loc[i,'desc']='record'
+            Aframe.loc[i,'news'] = common.get_latest_news(hdStock)
             i+=1
 
         for dtStock in dtStocks:
@@ -218,6 +222,7 @@ class top_statistic:
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='DT'
             Aframe.loc[i,'desc']='record'
+            Aframe.loc[i,'news'] = common.get_latest_news(dtStock)
             i+=1
 
         for meatStock in meatStocks:
@@ -225,6 +230,7 @@ class top_statistic:
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='meat'
             Aframe.loc[i,'desc']='record'
+            Aframe.loc[i,'news'] = common.get_latest_news(meatStock)
             i+=1
 
         for holeStock in holeStocks:
@@ -232,9 +238,10 @@ class top_statistic:
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='hole'
             Aframe.loc[i,'desc']='record'
+            Aframe.loc[i,'news'] = common.get_latest_news(holeStock)
             i+=1
 
-        Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"))
+        Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
         print "Generate daydayup csv finished!"
 
 if __name__=="__main__":
