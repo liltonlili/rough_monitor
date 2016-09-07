@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from pandas import DataFrame,Series
+import datetime
 import os
 import common
 from matplotlib.finance import candlestick_ohlc,candlestick2_ohlc
@@ -13,7 +14,7 @@ def add_mean(dframe):
     for ma in [5,10,20,60,120]:
         dframe['mean%s'%ma]=dframe['CLOSE_PRICE'].rolling(window=ma).mean()
 
-def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不卖'):
+def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不卖', mark_date=""):
     sub=sub[sub.LOWEST_PRICE > 0]
     sub.reset_index(len(sub),inplace=True)
     del sub['index']
@@ -33,6 +34,14 @@ def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不�
     plot_min = min_price * 0.95
     candlestick2_ohlc(ax1, sub['OPEN_PRICE'],sub['HIGHEST_PRICE'], sub['LOWEST_PRICE'],sub['CLOSE_PRICE'],  width=0.8, colorup='#ff1717',colordown='#53c156', alpha =1);
 
+    try:
+        if mark_date != u'':
+            mark_date = datetime.datetime.strptime(mark_date, "%Y-%m-%d")
+            mark_date = datetime.date(mark_date.year, mark_date.month, mark_date.day)
+            ax1.plot(min(sub[sub.TRADE_DATE >= mark_date].index.values),sub['LOWEST_PRICE'].values[-1],'r^')
+    except:
+        pass
+
     if direction == u'卖出':
         ax1.plot(max(sub.index.values),sub['HIGHEST_PRICE'].values[-1],'gv')
     elif direction == u'买入':
@@ -48,8 +57,8 @@ def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不�
         sub['Mount']=sub['DEAL_AMOUNT'].astype(np.float64)*bar_height/max(sub['DEAL_AMOUNT'].values)   ##归一化后的成交量
         upframe = sub[sub.CLOSE_PRICE > sub.OPEN_PRICE]
         downframe = sub[sub.CLOSE_PRICE < sub.OPEN_PRICE]
-        ax2.bar(downframe.index.values,downframe['Mount'].values,bottom=mount_min,color='#53c156', edgecolor='black',width=0.5)
-        ax2.bar(upframe.index.values,upframe['Mount'].values,bottom=mount_min,color='#ff1717', edgecolor='black',width=0.5)
+        ax2.bar(downframe.index.values,downframe['Mount'].values, bottom=mount_min,color='#53c156', edgecolor='black', width=0.5)
+        ax2.bar(upframe.index.values,upframe['Mount'].values, bottom=mount_min,color='#ff1717', edgecolor='black', width=0.5)
         ax2.set_ylim([mount_min*0.95,plot_max])
     else:
         ax2.set_ylim([plot_min*0.95,plot_max])
@@ -75,8 +84,8 @@ def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不�
         ax1.set_xlim([min(baseline)-2,max(baseline)+2])
     else:
         ax1.set_xlim([min(baseline)-2,len(sub)+2])
-    if direction == u'不买不卖':
-        ax1.legend(linearr,desarr,loc='upper left',ncol=3)
+    # if direction == u'不买不卖':
+    #     ax1.legend(linearr,desarr,loc='upper left',ncol=3)
     ax1.grid(True)
 
 ## 分时图

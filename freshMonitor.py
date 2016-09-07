@@ -38,7 +38,7 @@ while(True):
     timestamp=time.strftime("%X",time.localtime())
     print timestamp
 
-    curframe = common.get_sina_data(freshList)
+    curframe = common.get_sina_data(list(set(freshList)))
     curframe.set_index("stcid",inplace=True)
     judframe = pd.concat([lastFrame,curframe],axis=1)
     buFrame = judframe[(judframe.close < judframe.ZT_PRICE) | (judframe.low < judframe.ZT_PRICE)]

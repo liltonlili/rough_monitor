@@ -263,8 +263,8 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    MP.update_ZDT_stocksNum_ALL(dateEq="20160629")
-    MP.update_freshStocks(dateEq="20160629")
+    MP.update_ZDT_stocksNum_ALL(dateEq="20160901")
+    MP.update_freshStocks(dateEq="20160901")
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -279,5 +279,5 @@ if __name__ == "__main__":
     #         MP.update_ZDT_stocksNum([],[date])
             # print date
 
-    MP.update_ZDT_contsNum(dateEq="20160629")
-    MP.update_ZDT_yesterday(dateEq="20160629")
+    MP.update_ZDT_contsNum(dateEq="20160901")
+    MP.update_ZDT_yesterday(dateEq="20160901")

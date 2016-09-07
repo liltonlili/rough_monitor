@@ -295,9 +295,12 @@ def get_lastN_date(date,n):
     del calframe['0']
     calframe.columns=['Time']
     format_str=format_date(date,"%Y/%m/%d")
-    index=calframe[calframe.Time==format_str].index
+    # print format_str
+    index=min(calframe[calframe.Time >= format_str].index)
     last_index=index-n
-    last_date=str(calframe.loc[last_index,:]['Time'].values[0])
+    # print date
+    # last_date=str(calframe.loc[last_index,:]['Time'].values[0])
+    last_date=str(calframe.loc[last_index]['Time'])
     last_date=datetime.datetime.strptime(last_date,"%Y/%m/%d").strftime("%Y-%m-%d")
     return last_date
 

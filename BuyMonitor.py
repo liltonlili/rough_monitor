@@ -42,6 +42,8 @@ class BuyMonitor:
         result = self.mongodb.stock.ZDT_by_date.find_one({"date": self.yestoday})
         if "actulZtStocks" in result.keys():
             self.forcusList.update(result['actulZtStocks'].split("_"))
+        if "force_qsStocks" in result.keys():
+            self.forcusList.update(result['force_qsStocks'].split("_"))
         print "update forcus stocks finished!"
 
 

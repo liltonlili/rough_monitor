@@ -122,7 +122,8 @@ def get_detailed_content(href):
             time = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]/parent::*/parent::*//div[@class="left pcyc_l"]/span/text()'%hrefId)[0]
 
             # 正文内容
-            mainContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]'%hrefId)[0].xpath("string(.)")
+            # mainContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]'%hrefId)[0].xpath("string(.)")
+            mainContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]/parent::div'%hrefId)[0].xpath("string(.)")
 
             # mainContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]/text()'%hrefId)
             # #关键词
@@ -181,6 +182,7 @@ def get_detailed_content(href):
                 file_name = "./%s_%s.jpg"%(time_date,pic_count)
             file_name = os.path.join(mydir,"pic/%s"%file_name)
             try:
+                print "save pic:%s" % file_name
                 with open(file_name, 'wb') as fhandler:
                     rPic = s.get(url = pic, headers = image_headers)
                     fhandler.write(rPic.content)
@@ -196,18 +198,34 @@ def get_detailed_content(href):
             pic_count += 1
 
 
-        mainContent = mainContent.replace(" ","").replace(u'\xa0','\n').replace("\t","").replace("\n\n","\n").replace("\n\n","\n").replace("\n\n","\n").replace("\r\n","")
-        mainContent = mainContent.split(u"[淘股吧]")[0]
-        #引用
-        try:
-            referContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]/span'%hrefId)[1].xpath('string(.)').replace(" ","").replace(' ','')
-            referContent = referContent.replace(u"发表",u"发表\n\t")
-            referContent = referContent.replace(u'\xa0','').replace(" ","").strip()
-        except:
-            referContent = 'None'
+        mainContent = mainContent.replace(" ","").replace(u'\xa0',' ').replace("\t","").replace("\n\n","\n").replace("\n\n","\n").replace("\n\n","\n").replace("\r\n","")
+        # if u'[淘股吧]' in mainContent:
+        #     tailContent = mainContent.split(u'[淘股吧]')[1]
+        #     frontContent = mainContent.split(u"[淘股吧]")[0]
+        # else:
+        #     frontContent = mainContent
+        #     tailContent = ""
+
+        # #引用
+        # try:
+        #     referContent = root.xpath('//div[@class="pcnr_wz"]/p[@id="%s"]/span'%hrefId)[0].xpath('string(.)').replace(" ","").replace(' ','')
+        #     referContent = referContent.replace(u"发表",u"发表\n\t")
+        #     referContent = referContent.replace(u'\xa0','').replace(" ","").strip()
+        # except:
+        #     referContent = 'None'
+        # if tailContent.replace("\n","").replace("\r","").replace(" ","").strip() == referContent.replace("\n","").replace("\r","").replace(" ","").strip():
+        #     mainContent = frontContent
+
+        # 直接将mainContent的引用进行替换
+        if u'原帖由' in mainContent:
+            referContent = u"##原帖由" + mainContent.split(u"原帖由")[1].replace(u"发表", u'发表\n')
+            mainContent = mainContent.split(u"原帖由")[0]
+        else:
+            referContent = ""
 
         mainContents = "\t"+mainContent
         textContent = "%s\n\n##%s" %(mainContents, referContent)
+        # textContent = mainContents
         try:
             txtHandler.write(textContent.encode('utf8'))
         except:
@@ -229,9 +247,10 @@ def get_detailed_content(href):
             except:
                 docHandler.add_paragraph(textContent.decode("gbk"))
         tt.sleep(8)
-    except:
+    except Exception, err:
         docHandler.add_paragraph(href)
         txtHandler.write(href)
+        txtHandler.write(err)
 
 if __name__ == "__main__":
     global s, pic_count, docHandler, mydir
@@ -242,14 +261,21 @@ if __name__ == "__main__":
     #                 filename=os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/令胡冲/log","log.txt"),
     #                 filemode='w')
 
-    logging.config.fileConfig("./conf/conf_log.txt", defaults={'logdir': os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/fqza","")})
+    ID = '4223'
+    if not os.path.exists(os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID,"")):
+        os.mkdir(os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID,""))
+    logging.config.fileConfig("./conf/conf_log.txt", defaults={'logdir': os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID, "")})
     logging.getLogger().info("report main startup")
 
-    ID = '190857' #
+
+
     logging.getLogger().info(ID)
-    mydir = u'D:/Money/lilton_code/Market_Mode/learnModule/fqza'
+    mydir = u'D:/Money/lilton_code/Market_Mode/learnModule/%s' % ID
+    pic_mydir = u'D:/Money/lilton_code/Market_Mode/learnModule/%s/pic' % ID
+    if not os.path.exists(os.path.join(pic_mydir, "")):
+        os.makedirs(os.path.join(pic_mydir, ""))
     global txtHandler
-    txtHandler = open(os.path.join(mydir,"record.txt"),'w')
+    txtHandler = open(os.path.join(mydir,"record.txt"), 'w')
     docHandler = Document()
 
     s = requests.Session()
@@ -295,7 +321,7 @@ if __name__ == "__main__":
                 #得到每个回复的href之后，进行detail的解析
                 for href in hrefs:
                     # #debug
-                    # href = "http://www.taoguba.com.cn/Reply/1149649/17971214#17971214"
+                    # href = "http://www.taoguba.com.cn/Reply/1482769/22141278#22141278"
                     href = "http://www.taoguba.com.cn/" + href
                     get_detailed_content(href)
                     # break
