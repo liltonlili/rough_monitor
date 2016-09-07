@@ -15,99 +15,43 @@ import pymongo
 
 frame_list=[]
 class rtMonitor:
-    def __init__(self):
-        dir = 'D:\Money\lilton_code'
-        stock_list=pd.read_csv(os.path.join(dir,'stock_list.csv'))
-        stock_list=stock_list['code'].values
-        stock_lists=[]
-        self.stframe=DataFrame()
-        self.count=0
-
-
-        for code in stock_list:
-            code = '0'*(6-len(str(code)))+str(code)
-            if code[0:2] == '60':
-                code = 'sh'+code
-            else:
-                code = 'sz'+code
-            stock_lists.append(code)
-        self.stock_lists=stock_lists
-        self.groupID=range(len(stock_lists)/200+1)
-
-    def get_data(self,stock_list,timestamp,i):
-        self.dir = 'D:/Money/tenPercent'
-        slist=','.join(stock_list)
-        url = "http://hq.sinajs.cn/list=%s"%slist
-    #     print url
-        try:
-            r=requests.get(url)
-        except:
-            r=requests.get(url)
-        content=r.content.decode('gbk')
-        Dframe=self.parse_content(content,timestamp)
-        Dframe.to_csv(os.path.join(self.dir,'%s_10Percent.csv'%i))
-        # print self.frame_list
-        return Dframe
-
-    def parse_content(self,content,timestamp):
-        Inframe=DataFrame()
-        i = 0
-        strarray=content.split(';')
-        for item in strarray:
-            item_array=item.split(',')
-            if len(item_array)<10:
-                continue
-            stockid = item_array[0][14:20]
-            stockid = item_array[0].split('=')[0].split('str_')[1][2:]
-            close = item_array[3]
-            high = item_array[4]
-            low = item_array[5]
-            preclose = item_array[2]
-            if close == '0.00':
-                continue
-            Inframe.loc[i,'time']=timestamp
-            Inframe.loc[i,'stcid']=stockid
-            Inframe.loc[i,'close']=close
-            Inframe.loc[i,'preclose']=preclose
-            Inframe.loc[i,'high']=high
-            Inframe.loc[i,'low']=low
-            i+=1
-        Inframe['rate']=100*(Inframe['close'].astype(np.float64)-Inframe['preclose'].astype(np.float64))/Inframe['preclose'].astype(np.float64)
-        Inframe['rate']=Inframe['rate'].round(decimals=2)
-        return Inframe
-
-    def runBatch(self):
-        timestamp=time.strftime("%X",time.localtime())
-        for i in self.groupID:
-            if (i+1)*200 > len(self.stock_lists):
-                subproc=multiprocessing.Process(target=self.get_data,args=(self.stock_lists[i*200:],timestamp,i))
-            else:
-                subproc=multiprocessing.Process(target=self.get_data,args=(self.stock_lists[i*200:(i+1)*200],timestamp,i))
-            subproc.start()
-            subproc.join(60)
-        ## 将今日涨停股票入库
-        self.get_summary()
-
-    def get_summary(self):
+    def __init__(self, rediser):
+        self.redis = rediser
+        self.stock_list = []
+        self.get_stock_list()
+        self.stframe = DataFrame()
         mongo_url = "localhost"
         self.mongodb = pymongo.MongoClient(mongo_url)
-        frame_list=[]
-        self.dir = 'D:/Money/tenPercent'
-        for i in self.groupID:
-            tmpframe=pd.read_csv(os.path.join(self.dir,'%s_10Percent.csv'%i))
-            del tmpframe['Unnamed: 0']
-            os.remove(os.path.join(self.dir,'%s_10Percent.csv'%i))
-            frame_list.append(tmpframe)
+        self.count=0
+        self.dir = u'D:/Money/tenPercent'
+
+    def get_stock_list(self):
+        stock_list = self.redis.keys()
+        self.stock_list = [x for x in stock_list if len(str(x)) == 6]
+        self.stock_list = list(set(self.stock_list))
+
+    def runBatch(self):
+        ## 将今日涨停股票入库
+        self.get_summarize_day()
+
+    '''
+    time stockid close preclose high low rate
+    '''
+    def get_price_frame(self):
+        ttframe = common.get_price_from_redis(self.stock_list, self.redis)
+        return ttframe
+
+    def get_summarize_day(self):
         self.cdate =datetime.date.today().strftime("%Y-%m-%d")
         # self.cdate = "2016-05-20"
-        self.ttframe=pd.concat(frame_list,axis=0)
+        self.ttframe = self.get_price_frame()
         self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
         self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
         self.ttframe.to_csv(os.path.join(self.dir,'daily_summary_%s.csv'%self.cdate))
-        self.utframe=self.ttframe[self.ttframe.close>=self.ttframe.up10]['stcid']       ##涨停
-        self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stcid']  ##高点涨停
-        self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stcid']       ##跌停
-        self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stcid']    ##低点跌停
+        self.utframe=self.ttframe[self.ttframe.close>=self.ttframe.up10]['stockid']       ##涨停
+        self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stockid']  ##高点涨停
+        self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stockid']       ##跌停
+        self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stockid']    ##低点跌停
         s1=pd.DataFrame(self.utframe.values)
         s2=pd.DataFrame(self.nuframe.values)
         s3=pd.DataFrame(self.dtframe.values)
@@ -163,7 +107,7 @@ class rtMonitor:
 
     #放量股
     # tframe格式为：
-    #        time        date   stcid  close  preclose   high    low  vol  amount       rate
+    #        time        date   stockid  close  preclose   high    low  vol  amount       rate
     # 0  11:15:12  2016-04-07  002785  27.20     25.08  27.50  25.00  115516   3010000   8.45
     # 1  11:15:12  2016-04-07  603866  33.36     32.94  33.75  32.95   34952   117000   1.28
     # return string

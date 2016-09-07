@@ -744,3 +744,29 @@ def get_latest_news(stock):
 
     news = real_content + hist_content
     return news
+
+'''
+time stockid close preclose high rate
+原始的frame，rate为-100是存在的
+'''
+def get_price_from_redis(stock_lists, rediser):
+        ttframe = DataFrame()
+        timestamp=time.strftime("%X", time.localtime())
+        count = 0
+        # print timestamp
+        for stockid in stock_lists:
+            redis_value = eval(rediser.get(stockid))
+            if len(redis_value) != 5:
+                continue
+            [close, preclose, high, low, rate] = redis_value
+            # if int(rate) < -15:
+            #     rate = 0
+            ttframe.loc[count, 'time'] = timestamp
+            ttframe.loc[count, 'stockid'] = stockid
+            ttframe.loc[count, 'close'] = close
+            ttframe.loc[count, 'preclose'] = preclose
+            ttframe.loc[count, 'high'] = high
+            ttframe.loc[count, 'low'] = low
+            ttframe.loc[count, 'rate'] = rate
+            count += 1
+        return ttframe

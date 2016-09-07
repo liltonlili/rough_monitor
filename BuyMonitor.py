@@ -101,8 +101,6 @@ class BuyMonitor:
         self.freshList=list(self.freshList)
         self.forcusList=list(self.forcusList)
         self.nearNewHigh = list(self.nearNewHigh)
-        # root = Tk()
-        # root.withdraw()  #hide window
         self.fresh_prestr=''
         self.forcus_prestr=""
         while(True):

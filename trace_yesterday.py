@@ -10,6 +10,7 @@ import requests
 from pandas import DataFrame,Series
 import pymongo
 import common
+import redis
 
 
 class top_statistic:
@@ -18,6 +19,7 @@ class top_statistic:
         self.today = datetime.date.today().strftime('%Y%m%d')
         # cday = "2016/05/20"
         # self.today = "20160520"
+        self.redis = redis.Redis(host='localhost', port=6379, db=1)
         calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
         del calframe['0']
         calframe.columns=['Time']
@@ -39,66 +41,20 @@ class top_statistic:
         self.count=0
         
 
-    def parse_content(self,content,timestamp):
-        Inframe=pd.DataFrame()
-        i = 0
-        strarray=content.split(';')
-        for item in strarray:
-            item_array=item.split(',')
-            if len(item_array)<10:
-                continue
-            stockid = item_array[0][14:20]
-            stockid = item_array[0].split('=')[0].split('str_')[1][2:]
-            close = item_array[3]
-            preclose = item_array[2]
-            if close == '0.00':
-                continue
-            Inframe.loc[i,'time']=timestamp
-            Inframe.loc[i,'stcid']=stockid
-            Inframe.loc[i,'close']=round(float(close),2)
-            Inframe.loc[i,'preclose']=preclose
-            i+=1
-        Inframe['rate']=100*(Inframe['close'].astype(np.float64)-Inframe['preclose'].astype(np.float64))/Inframe['preclose'].astype(np.float64)
-        Inframe['rate']=Inframe['rate'].round(decimals=2)
-        Inframe['up10']=(Inframe['preclose'].astype(np.float64)*1.1).round(2)
-        Inframe['dn10']=(Inframe['preclose'].astype(np.float64)*0.9).round(2)
-        return Inframe
-
-
-    def get_data(self,stock_list,timestamp):
-        slist=','.join(stock_list)
-        url = "http://hq.sinajs.cn/list=%s"%slist
-        try:
-            r=requests.get(url)
-        except:
-            r=requests.get(url)
-        content=r.content.decode('gbk')
-        Dframe=self.parse_content(content,timestamp)
-        return Dframe
-    
 
     def get_statistics(self,stock_list,timestamp):
-        stock_lists=[]       
+        stock_lists=[]
         for code in stock_list:
             if len(code) < 2:
                 continue
             code=int(code)
             code = '0'*(6-len(str(code)))+str(code)
-            if code[0:2] == '60':
-                code = 'sh'+code
-            else:
-                code = 'sz'+code
             stock_lists.append(code)
-        if len(stock_list)>200:
-            tframe_list=[]
-            for i in range(len(stock_list)/200+1):
-                if 200*i > len(stock_list):
-                    break
-                tframe=self.get_data(stock_lists[200*i:200*(i+1)],timestamp)
-                tframe_list.append(tframe)
-            tframe=pd.concat(tframe_list,axis=0)
-        else:
-            tframe=self.get_data(stock_lists,timestamp)
+        # 改用redis 接口
+        tframe = common.get_price_from_redis(stock_lists, self.redis)
+        tframe = tframe[tframe.rate > -15]
+        tframe['up10']=(tframe['preclose'].astype(np.float64)*1.1).round(2)
+        tframe['dn10']=(tframe['preclose'].astype(np.float64)*0.9).round(2)
         up_10=len(tframe[tframe.up10==tframe.close])
         dn_10=len(tframe[tframe.dn10==tframe.close])
         pos=len(tframe[tframe.rate > 0])
@@ -147,8 +103,8 @@ class top_statistic:
             if not ztframe.empty:
                 meatFrame = ztframe[ztframe.rate > 3]
                 holeFrame = ztframe[ztframe.rate < -2]
-                meatList = "_".join(list(meatFrame['stcid'].values))
-                holeList = "_".join(list(holeFrame['stcid'].values))
+                meatList = "_".join(list(meatFrame['stockid'].values))
+                holeList = "_".join(list(holeFrame['stockid'].values))
                 self.mongodb.stock.ZDT_by_date.update({"date":self.today},{"$set":{"meatList":meatList,
                                                                                     "holeList":holeList}},True,True)
             if 'ddt' not in Sframe.columns:
