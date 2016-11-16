@@ -3,8 +3,10 @@ import sys
 
 class mysqldb:
     def __init__(self,params):
-        self.db=MySQLdb.connect(host=params['host'],port=params['port'],user=params['user'],passwd=params['pw'],db=params['db'],charset="utf8")
-    
+        try:
+            self.db=MySQLdb.connect(host=params['host'],port=params['port'],user=params['user'],passwd=params['pw'],db=params['db'],charset="utf8", connect_timeout=5)
+        except Exception, err:
+            print "connect database err for %s"%params['host']
     def query(self,query):
         curs=self.db.cursor()
         queryData = None

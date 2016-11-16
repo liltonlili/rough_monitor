@@ -115,7 +115,8 @@ class rtMonitor:
         if len(tlist)<1:
             return ""
         tframe=common.get_sina_data(tlist)
-        Mlist=[tframe.loc[i,"stcid"] for i in tframe.index.values if common.volStatus(tframe.loc[i,"stcid"],tframe.loc[i,'date'],tframe.loc[i,'vol'])]
+        Mlist = ""
+        # Mlist=[tframe.loc[i,"stcid"] for i in tframe.index.values if common.volStatus(tframe.loc[i,"stcid"],tframe.loc[i,'date'],tframe.loc[i,'vol'])]
         return "_".join(Mlist)
 
 

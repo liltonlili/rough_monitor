@@ -3,7 +3,7 @@ import pymongo
 
 ##定期和生产的数据库进行同步
 
-server_mongo = "mongodb://dpipe:dpipe@nosql04-dev.datayes.com"
+server_mongo = "mongodb://app_reports_db_rw:OxXtSsFeZX0JZEZk@mongodb01-dbp.datayes.com,mongodb02-dbp.datayes.com,mongodb03-dbp.datayes.com/reports_db?readPreference=secondaryPreferred"
 MongoServer = pymongo.MongoClient(server_mongo)
 
 local_mongo = "localhost"

@@ -17,6 +17,7 @@ strYestoday = common.format_date(yesToday,"%Y%m%d")
 mongodb = pymongo.MongoClient(mongoUrl)
 freshCols = mongodb.stock.ZDT_by_date.find_one({"date":strYestoday})
 freshList =freshCols['freshStocks'].split("_")
+# freshList.append("")
 datelist = []
 datelist.append(strYestoday)
 lastFrame = common.get_mysqlData(freshList,datelist)

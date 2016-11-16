@@ -14,10 +14,19 @@ from Tkinter import *
 from tkMessageBox import *
 import Tkinter as tk
 import json
+import matplotlib as mpl
+from matplotlib import *
+from matplotlib.font_manager import FontProperties
 
+# myFmt = mpl.mdates.DateFormatter('%Y-%m-%d')
+myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
+mpl.rcParams['axes.unicode_minus'] = False
 mongourl = "localhost"
 global mongodb
 mongodb = pymongo.MongoClient(mongourl)
+
+
+
 
 def connectdb():
     # mydbs='a'
@@ -25,10 +34,11 @@ def connectdb():
     # dydb='c'
     mydbs=mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
     mydb = mysqldb({'host': '10.21.232.43', 'user': 'app_gaea_ro', 'pw': 'Welcome20150416', 'db': 'MarketDataL1', 'port': 5029})  ##分笔，分钟级
-    dydb  = mysqldb({'host': 'db-datayesdb.wmcloud-qa.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdbp', 'port': 3313})
+    dydb  = mysqldb({'host': 'db-datayesdb-ro.wmcloud.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdbp', 'port': 3313})
     cardb = mysqldb({'host': 'db-news.wmcloud-stg.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'news', 'port': 3310})
-    souhudbs = mysqldb({'host': 'db-datayesdb.wmcloud-qa.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdb', 'port': 3313})
-    souhudbi = mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
+    souhudbs = mysqldb({'host': 'db-datayesdb-ro.wmcloud.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdb', 'port': 3313})
+    # souhudbi = mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
+    souhudbi = mydbs
     # localdb = mysqldb({'host': '127.0.0.1', 'user': 'root', 'pw': '', 'db': 'stock', 'port': 3306})
     localdb = None
     return (mydbs,mydb,dydb,localdb,cardb,souhudbs,souhudbi)
@@ -75,6 +85,9 @@ class mysqldata:
             return 1
         except Exception,e:
             return e
+
+global mysqldb
+mysqldb = mysqldata()
 
 ## [(2010,1),(2010,2)]
 def get_ympair(sty,stm,eny,enm):
@@ -171,7 +184,8 @@ def getDate(startdate,enddate):
 # 1           600710          *ST常林  2016-04-27             9.36        0.00         10.61         10.52        10.57
 
 def get_mysqlData(stock_list,date_list):
-    mysqldb = mysqldata()
+    global mysqldb
+    # mysqldb = mysqldata()
     stock_list = [str(x).replace('sh',"").replace('sz',"").replace(".","").replace("SH","").replace("SZ","") for x in stock_list]
     stock_list = ['0'*(6-len(str(x)))+str(x) for x in stock_list]
     date_list = [format_date(x,"%Y-%m-%d") for x in date_list]
@@ -194,13 +208,14 @@ def get_mysqlData(stock_list,date_list):
 
 ## 执行mysql，返回dataframe
 def get_mysqlData_sqlquery(sqlquery):
-    mysqldb = mysqldata()
+    # mysqldb = mysqldata()
+    global mysqldb
     dataFrame = mysqldb.dydb_query(sqlquery)
     return dataFrame
 
 ## 执行mysql，返回dataframe
 def get_mydb_sqlquery(sqlquery):
-    mysqldb = mysqldata()
+    global mysqldb
     dataFrame = mysqldb.mydb_query(sqlquery)
     return dataFrame
 
@@ -222,7 +237,9 @@ def get_value(stoc_list,date):
                 pass
     last_date=get_last_date(date)
     vframe=pd.DataFrame()
-    sqldb=mysqldata()
+    global mysqldb
+    sqldb = mysqldb
+    # sqldb=mysqldata()
     #      TICKER_SYMBOL SEC_SHORT_NAME  TRADE_DATE  PRE_CLOSE_PRICE  OPEN_PRICE    HIGHEST_PRICE   LOWEST_PRICE  CLOSE_PRICE
 # 0           000033          *ST新都  2016-04-27            10.38        0.00           0.00          0.00        10.38
 # 1           600710          *ST常林  2016-04-27             9.36        0.00         10.61         10.52        10.57
@@ -621,7 +638,7 @@ def plotFrame(dataFrame,x='',y=[],titles=[],point=100, marker=False):
     plt.show()
 
 #查找数据库中的股票,name可以是股票代码，也可以是股票名字
-# 返回是[601989,'中国重工']
+# 返回是['中国重工', 601989]
 def QueryStockMap(id='',name=''):
     global mongodb
     if id != '':
@@ -657,7 +674,9 @@ def WindowShow(stockList, operate, number, message):
     tellstr = "_".join(telllist)
     tellnamestr = "_".join(tellname)
     # showinfo(message, "---- %s ------\n%s\n%s" % (message,tellstr, tellnamestr))
-    showinfos("---- %s ------\n\n%s\n\n%s" % (message,tellstr, tellnamestr))
+    # 太多了，暂时不处理，需要更新系统
+    if message != u'接近新高股8个点以上提示':
+        showinfos("---- %s ------\n\n%s\n\n%s" % (message,tellstr, tellnamestr))
     return telllist
 
 def showinfos(message):
@@ -675,9 +694,30 @@ def showinfos(message):
 def get_realtime_news(stock):
     count = 3
     news = ""
-    r = requests.get("http://www.yuncaijing.com/stock/get_line/"+stock)
+    if stock[:2] == '60':
+        refer = "http://www.yuncaijing.com/quote/sh%s.html"%stock
+    else:
+        refer = "http://www.yuncaijing.com/quote/sz%s.html"%stock
+    headers = {
+        "Accept":"application/json, text/javascript, */*; q=0.01",
+        "Accept-Encoding":"gzip, deflate",
+        "Content-Type":"application/x-www-form-urlencoded; charset=UTF-8",
+        "Host":"www.yuncaijing.com",
+        "Origin":"http://www.yuncaijing.com",
+        "Referer":"http://www.yuncaijing.com/quote/sz002436.html",
+        "X-Requested-With":"XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:49.0) Gecko/20100101 Firefox/49.0"
+    }
+    datas = {
+        "code":stock
+    }
+    # datas = "code=002436"
+    url = "http://www.yuncaijing.com/stock/get_lines/yapi/ajax.html"
+    # proxies = {'http':'http://10.20.205.162:1080'}
+    # r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
+    r = requests.post(url = url, headers=headers, data=datas)
     while r.status_code != 200 or count < 0:
-        r = requests.get("http://www.yuncaijing.com/stock/get_line/"+stock)
+        r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
         count -= 1
     if r.status_code != 200:
@@ -690,9 +730,23 @@ def get_realtime_news(stock):
 def get_hist_news(stock):
     count = 10
     news = ""
-    r = requests.get("http://www.yuncaijing.com/stock/get_kline/"+stock)
+    headers = {
+        "Accept":"application/json, text/javascript, */*; q=0.01",
+        "Accept-Encoding":"gzip, deflate",
+        "Content-Type":"application/x-www-form-urlencoded; charset=UTF-8",
+        "Host":"www.yuncaijing.com",
+        "Origin":"http://www.yuncaijing.com",
+        "Referer":"http://www.yuncaijing.com",
+        "X-Requested-With":"XMLHttpRequest",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:49.0) Gecko/20100101 Firefox/49.0"
+    }
+    datas = {
+        "code":stock
+    }
+    url = "http://www.yuncaijing.com/stock/get_klines/yapi/ajax.html"
+    r = requests.post(url = url, headers = headers, data=datas)
     while r.status_code != 200 or count < 0:
-        r = requests.get("http://www.yuncaijing.com/stock/get_kline/"+stock)
+        r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
         count -= 1
     contents = json.loads(r.content)
@@ -770,3 +824,163 @@ def get_price_from_redis(stock_lists, rediser):
             ttframe.loc[count, 'rate'] = rate
             count += 1
         return ttframe
+
+## 添加均线,利用CLOSE_PRICE,得到mean5,mean10,mean20...
+def add_mean(dframe):
+    for ma in [5,10,20,60,120]:
+        dframe['mean%s'%ma]=dframe['CLOSE_PRICE'].rolling(window=ma).mean()
+
+# 得到股票代码在某些天内的日线数据
+# 格式匹配交割单图
+# 1代表个股，0代表指数
+def get_daily_frame(code, start_date, end_date, id_type = 1):
+    if id_type == 1:
+        code = "0"*(6-len(str(int(code))))+str(int(code))
+        sql = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE, \
+        DEAL_AMOUNT from vmkt_equd where TRADE_DATE >= '%s' and TRADE_DATE <='%s' and TICKER_SYMBOL = '%s'"%(start_date,end_date,code)
+        sub = get_mysqlData_sqlquery(sql)
+    elif id_type == 0:
+        idxcode = "000001"
+        idxsql = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_INDEX, OPEN_INDEX, HIGHEST_INDEX, LOWEST_INDEX, CLOSE_INDEX, \
+        TURNOVER_VOL from vmkt_idxd where TRADE_DATE >= '%s' and TRADE_DATE <='%s' and TICKER_SYMBOL = '%s'"%(start_date,end_date,idxcode)
+        sub = get_mysqlData_sqlquery(idxsql)
+        sub.columns=[["TICKER_SYMBOL", "SEC_SHORT_NAME", "TRADE_DATE", "PRE_CLOSE_PRICE", "OPEN_PRICE", "HIGHEST_PRICE", "LOWEST_PRICE", "CLOSE_PRICE", "DEAL_AMOUNT"]]
+    add_mean(sub)
+    return sub
+
+
+def get_minly_tushare_frame(stockid, endDate, id_type =1):
+    if id_type == 1:
+        stockid = "0"*(6-len(str(stockid))) + str(stockid)
+        endDate = format_date(endDate, "%Y-%m-%d")
+        dframe = ts.get_tick_data(code=stockid,date = endDate)
+        dframe['min'] = dframe['time'].apply(lambda x: x.split(":")[1])
+        dframe['hour'] = dframe['time'].apply(lambda x: x.split(":")[0])
+        dframe['sec'] = dframe['time'].apply(lambda x: x.split(":")[2])
+        dframe['bartime'] = dframe['hour'] + ":" + dframe['min']
+
+        # closeprice
+        closeprice = dframe[(dframe.sec == '00') | (dframe.hour == '15')][['price','bartime']]
+        closeprice.set_index('bartime', inplace=True)
+
+        # volume, 成交量，股
+        volume = dframe['volume'].groupby([dframe['min'], dframe['hour']]).sum().reset_index()
+        volume['bartime'] = volume['hour'] + ":" + volume['min']
+        volume.set_index('bartime', inplace=True)
+        volume['volume'] = 100 * volume['volume']
+        volumes = volume['volume']
+        zframe = pd.concat([closeprice, volumes], axis=1)
+        zframe.sort_index()
+        zframe.fillna(method = 'pad', inplace=True)
+        zframe.fillna(method = 'bfill', inplace=True)
+
+        len_frame = len(zframe)
+        # datadate
+        today = format_date(endDate, "%Y%m%d")
+        datadate = np.array([today] * len_frame)
+
+        # ticker
+        ticker = np.array([stockid] * len_frame)
+
+        # secoffset
+        secoffset = np.array([0] * len_frame)
+        # exchangecd
+        exchangecd = np.array(['CHINA'] * len_frame)
+
+        openprice = np.array(zframe['price'])
+        highprice = openprice
+        lowprice = openprice
+        value = volumes
+        vwap = openprice
+        shortnm = np.array(['CHINA'] * len_frame)
+
+        zframe['datadate'] = datadate
+        zframe['ticker'] = ticker
+        zframe['secoffset'] = secoffset
+        zframe['openprice'] = openprice
+        zframe['highprice'] = highprice
+        zframe['lowprice'] = lowprice
+        zframe['value'] = value
+        zframe['vwap'] = vwap
+        zframe['exchangecd'] = exchangecd
+        zframe['shortnm'] = shortnm
+        zframe.reset_index(len(zframe), inplace=True)
+        zframe.columns = ['bartime', 'closeprice', 'volume', 'datadate', 'ticker', 'secoffset', 'openprice', 'highprice','lowprice','value', 'vwap', 'exchangecd', 'shortnm']
+        return zframe
+
+
+
+
+# 得到股票代码在某天内的分钟级数据
+# 格式匹配交割单图
+# 1代表个股，0代表指数
+def get_minly_frame(stockid, endDate, id_type =1):
+    try:
+        tableTime = format_date(endDate,"%Y%m")
+        endDate = format_date(endDate,"%Y%m%d")
+        if id_type == 1:
+            stockid = "0"*(6-len(str(int(stockid))))+str(int(stockid))
+            # table = "equity_pricefenbi%s"%tableTime
+            table = "MarketDataTDB.equity_pricemin%s"%tableTime
+            dtsql = "SELECT * from %s where ticker = %s and datadate = %s"%(table,stockid,endDate)
+            print dtsql
+            dtv = get_mydb_sqlquery(dtsql)
+            if len(dtv) == 0:
+                table = "MarketDataL1.equity_pricemin%s"%tableTime
+                dtsql = "SELECT * from %s where ticker = %s and datadate = %s"%(table,stockid,endDate)
+                dtv = get_mydb_sqlquery(dtsql)
+        else:
+            table = "MarketDataTDB.equity_pricemin%s"%tableTime
+            zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证指数"'%(table,endDate)
+            dtv = get_mydb_sqlquery(zssql)
+            if len(dtv) == 0:
+                table = "MarketDataTDB.equity_pricemin%s"%tableTime
+                zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证综指"'%(table,endDate)
+                dtv = get_mydb_sqlquery(zssql)
+        return dtv
+    except:
+        dtv = get_minly_tushare_frame(stockid, endDate, id_type)
+        return dtv
+
+def plot_text(ax, texts, fontsize = 20):
+    total_text = []
+
+    for text in texts:
+        text = text.replace(r"</kbd>", "")
+        if len(text) > 28 and len(text) < 56:
+            total_text.append(text[:27])
+            total_text.append(text[27:])
+        elif len(text) > 56:
+            total_text.append(text[:27])
+            total_text.append(text[28:56])
+            total_text.append(text[56:])
+        else:
+            total_text.append(text)
+    texts = total_text
+    texts.reverse()
+    n = len(texts)
+    n = n + 2
+    tmp_texts = [' ']
+    tmp_texts.extend(texts)
+    texts = tmp_texts
+    texts.append(" ")
+    t_list = []
+    for i in range(n):
+        s_list = pd.Series([i+1]*6)
+        t_list.append(s_list)
+    fframe = pd.concat(t_list, axis=1)
+
+    i = 0
+    for col in fframe.columns:
+        ax.plot(fframe.index.values, fframe[col], 'w')
+        ax.annotate(texts[i], xy=(0, i+1), fontproperties=myfont, fontsize = fontsize)
+        i += 1
+    ax.spines['top'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['top'].set_color('none')
+    ax.spines['left'].set_color('none')
+    ax.spines['right'].set_color('none')
+    ax.spines['bottom'].set_color('none')
+    ax.axis('off')

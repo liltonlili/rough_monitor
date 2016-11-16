@@ -11,14 +11,20 @@ from pandas import DataFrame,Series
 import pymongo
 import common
 import redis
+import LearnFrom
+import matplotlib.pyplot as plt
 
+import matplotlib as mpl
+from matplotlib import *
+from matplotlib.font_manager import FontProperties
+myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
 
 class top_statistic:
     def __init__(self):
         cday = datetime.date.today().strftime('%Y/%m/%d')
         self.today = datetime.date.today().strftime('%Y%m%d')
-        # cday = "2016/05/20"
-        # self.today = "20160520"
+        # cday = "2016/11/11"
+        # self.today = "20161111"
         self.redis = redis.Redis(host='localhost', port=6379, db=1)
         calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
         del calframe['0']
@@ -39,8 +45,6 @@ class top_statistic:
         self.low10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['LD_stocks'].split("_")
         self.dn10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['DT_stocks'].split("_")
         self.count=0
-        
-
 
     def get_statistics(self,stock_list,timestamp):
         stock_lists=[]
@@ -147,8 +151,38 @@ class top_statistic:
         print "calculate continus number finished!"
 
     def genCsv(self):
-        ##生成daydayup.csv,用来复盘
+        ttime=time.localtime()
+        thour=ttime.tm_hour
+        tmin=ttime.tm_min
         detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
+        if (thour < 18):
+            ##生成daydayup.csv,用来复盘
+            Aframe = self.get_csv(detailinfos, png_enable = 0)
+            Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
+            # 将每日的csv copy到复盘目录中
+            c_date = self.today
+            constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
+            Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
+            print "Generate daydayup csv finished!"
+
+        while True:
+            ttime=time.localtime()
+            thour=ttime.tm_hour
+            tmin=ttime.tm_min
+            if (thour > 18) or (thour == 18 and tmin > 5):
+                Aframe = self.get_csv(detailinfos, png_enable = 1)
+                Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
+                break
+            else:
+                print "Sleeping"
+                time.sleep(1800)
+
+        # 将每日的csv copy到复盘目录中
+        c_date = self.today
+        constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
+        Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
+
+    def get_csv(self, detailinfos, png_enable = 0):
         ztStocks = detailinfos['actulZtStocks'].split("_")
         dtStocks = detailinfos['DT_stocks'].split("_")
         meatStocks = detailinfos['meatList'].split("_")
@@ -157,48 +191,170 @@ class top_statistic:
 
         i = 0
         Aframe=DataFrame()
+        c_date = self.today
+        constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
+        if not os.path.exists(constant_dir):
+            os.makedirs(constant_dir)
+
         for ztStock in ztStocks:
             Aframe.loc[i,'stock']=ztStock
+            Aframe.loc[i,'name'] = common.QueryStockMap(id = ztStock)[0]
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='ZT'
             Aframe.loc[i,'desc']='record'
             Aframe.loc[i,'news'] = common.get_latest_news(ztStock)
+            if png_enable == 1:
+                generate_fp_pic(ztStock, constant_dir, Aframe.loc[i,'news'], self.today)
             i+=1
 
         for hdStock in hdStocks:
             Aframe.loc[i,'stock']=hdStock
+            Aframe.loc[i,'name'] = common.QueryStockMap(id = hdStock)[0]
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='HD'
             Aframe.loc[i,'desc']='record'
             Aframe.loc[i,'news'] = common.get_latest_news(hdStock)
+            if png_enable == 1:
+                generate_fp_pic(hdStock, constant_dir, Aframe.loc[i,'news'], self.today)
             i+=1
 
         for dtStock in dtStocks:
             Aframe.loc[i,'stock']=dtStock
+            Aframe.loc[i,'name'] = common.QueryStockMap(id = dtStock)[0]
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='DT'
             Aframe.loc[i,'desc']='record'
             Aframe.loc[i,'news'] = common.get_latest_news(dtStock)
+            if png_enable == 1:
+                generate_fp_pic(dtStock, constant_dir, Aframe.loc[i,'news'], self.today)
             i+=1
 
         for meatStock in meatStocks:
             Aframe.loc[i,'stock']=meatStock
+            Aframe.loc[i,'name'] = common.QueryStockMap(id = meatStock)[0]
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='meat'
             Aframe.loc[i,'desc']='record'
             Aframe.loc[i,'news'] = common.get_latest_news(meatStock)
+            if png_enable == 1:
+                generate_fp_pic(meatStock, constant_dir, Aframe.loc[i,'news'], self.today)
             i+=1
 
         for holeStock in holeStocks:
             Aframe.loc[i,'stock']=holeStock
+            Aframe.loc[i,'name'] = common.QueryStockMap(id = holeStock)[0]
             Aframe.loc[i,'reason']='0'
             Aframe.loc[i,'type']='hole'
             Aframe.loc[i,'desc']='record'
             Aframe.loc[i,'news'] = common.get_latest_news(holeStock)
+            if png_enable == 1:
+                generate_fp_pic(holeStock, constant_dir, Aframe.loc[i,'news'], self.today)
             i+=1
+        return Aframe
 
-        Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
-        print "Generate daydayup csv finished!"
+# def generate_fp_pic(stockid, dir, news):
+#     if int(stockid) == 0:
+#         return
+#     fig = plt.figure()
+#
+#     # 画个股分时图
+#     ax1 = fig.add_subplot(221)
+#     endDate = datetime.datetime.now().strftime("%Y%m%d")
+#     # endDate = "20161017"
+#     yesterday = common.get_lastN_date(endDate, 1)
+#
+#     # 画出分时图，并标注涨幅
+#     stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
+#     yeframe = common.get_mysqlData([stockid],[yesterday])
+#     if len(yeframe) > 0:
+#         pre_close = yeframe.loc[0,'CLOSE_PRICE']
+#     else:
+#         pre_close = 0
+#     LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close = pre_close)
+#
+#     [sname, sid] = common.QueryStockMap(id = stockid)
+#     ax1.set_title(sname, fontproperties=myfont)
+#     ax1.grid(True)
+#
+#     # 画上证分时图， 不标注涨幅
+#     ax2 = fig.add_subplot(223)
+#     sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
+#     LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1)
+#     ax2.grid(True)
+#
+#     ax3 = fig.add_subplot(222)
+#     ax4 = fig.add_subplot(224)
+#     # 将新闻画在后面
+#     texts = news.split("\n")
+#     tn = len(texts)
+#
+#     n1 = int(tn/2)
+#     texts1 = texts[:n1]
+#
+#     texts2 = texts[n1:]
+#     n2 = tn - n1
+#     common.plot_text(ax3, texts1, fontsize=8)
+#     common.plot_text(ax4, texts2, fontsize=8)
+#     plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
+
+def generate_fp_pic(stockid, dir, news, endDate):
+    if len(str(stockid)) <3:
+        return
+    print stockid
+    fig = plt.figure(figsize=(16,8))
+
+    # 画个股分时图
+    ax1 = fig.add_subplot(231)
+    # endDate = datetime.datetime.now().strftime("%Y%m%d")
+    # endDate = "20161017"
+    yesterday = common.get_lastN_date(endDate, 1)
+
+    # 画出分时图，并标注涨幅
+    stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
+    yeframe = common.get_mysqlData([stockid],[yesterday])
+    if len(yeframe) > 0:
+        pre_close = yeframe.loc[0,'CLOSE_PRICE']
+    else:
+        pre_close = 0
+    LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close = pre_close)
+
+    [sname, sid] = common.QueryStockMap(id = stockid)
+    ax1.set_title(sname, fontproperties=myfont)
+    ax1.grid(True)
+
+    ax5 = fig.add_subplot(233)
+    ax6 = fig.add_subplot(236)
+    point = 10
+    start_date = common.get_lastN_date(endDate, 120)
+    # 画上个股日线图
+    ggstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 1)
+    shstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 0)
+    LearnFrom.plot_candlestick(ggstock,ax5,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
+    LearnFrom.plot_candlestick(shstock,ax6,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
+    # 画上证分时图， 不标注涨幅
+    ax2 = fig.add_subplot(234)
+    sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
+    LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1)
+    ax2.grid(True)
+
+    ax3 = fig.add_subplot(232)
+    ax4 = fig.add_subplot(235)
+    # 将新闻画在后面
+    texts = news.split("\n")
+    tn = len(texts)
+
+    n1 = int(tn/2)
+    texts1 = texts[:n1]
+
+    texts2 = texts[n1:]
+    n2 = tn - n1
+    common.plot_text(ax3, texts1, fontsize=8)
+    common.plot_text(ax4, texts2, fontsize=8)
+    plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
+
+
+
+
 
 if __name__=="__main__":
     z=top_statistic()

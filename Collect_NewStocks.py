@@ -39,6 +39,7 @@ def update_Mongo(stockId,stockDate):
 
 
 def fresh_newStockWebsite():
+    # pages = [1, 2, 3, 4]
     pages = [1]
     mongoUrl = "localhost"
     global mongodb
@@ -68,6 +69,8 @@ def fresh_newStockWebsite():
             else:
                 update_Mongo(stockId,stockDate)
 
+if __name__ == '__main__':
+    fresh_newStockWebsite()
 
 
 

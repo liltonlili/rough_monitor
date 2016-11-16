@@ -215,6 +215,7 @@ class MainProc:
         Sframe=pd.DataFrame()
         count = 0
         predate = datetime.datetime.strptime(predate,"%Y-%m-%d").strftime("%Y%m%d")
+        print predate
         cdate = datetime.datetime.strptime(cdate,"%Y-%m-%d").strftime("%Y%m%d")
         cdateinfo = mongodb.stock.ZDT_by_date.find_one({"date":cdate})
         predateinfo = mongodb.stock.ZDT_by_date.find_one({"date":predate})
@@ -263,8 +264,10 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    MP.update_ZDT_stocksNum_ALL(dateEq="20160901")
-    MP.update_freshStocks(dateEq="20160901")
+    MP.update_ZDT_stocksNum_ALL(dateEq="20161116")
+    # MP.update_ZDT_stocksNum_ALL(dateStart = '20161112', dateEnd = '20161115')
+    MP.update_freshStocks(dateEq="20161116")
+    # MP.update_freshStocks(dateStart = '20161112', dateEnd = '20161115')
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -279,5 +282,7 @@ if __name__ == "__main__":
     #         MP.update_ZDT_stocksNum([],[date])
             # print date
 
-    MP.update_ZDT_contsNum(dateEq="20160901")
-    MP.update_ZDT_yesterday(dateEq="20160901")
+    MP.update_ZDT_contsNum(dateEq="20161116")
+    MP.update_ZDT_yesterday(dateEq="20161116")
+    # MP.update_ZDT_contsNum(dateStart = '20161112', dateEnd = '20161115')
+    # MP.update_ZDT_yesterday(dateStart = '20161112', dateEnd = '20161115')

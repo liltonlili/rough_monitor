@@ -22,6 +22,7 @@ class BuyMonitor:
         # self.today = "20160520"
         self.yestoday = common.get_last_date(self.today)
         self.yestoday = common.format_date(self.yestoday,"%Y%m%d")
+        print self.yestoday
         self.updateNewHighlist()
         while(True):
             ttime=time.localtime()
