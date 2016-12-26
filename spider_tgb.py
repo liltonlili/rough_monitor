@@ -27,7 +27,7 @@ data = {
     'pwdlevel' : 'Y',
     'loginType' : 1,
     'userName' : 'liltonlili',
-    'pwd' : 'taoguba366381',
+    'pwd' : 'taoguba890928',
     'save' : 'Y'
 }
 
@@ -261,7 +261,7 @@ if __name__ == "__main__":
     #                 filename=os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/令胡冲/log","log.txt"),
     #                 filemode='w')
 
-    ID = '4223'
+    ID = '591447'
     if not os.path.exists(os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID,"")):
         os.mkdir(os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID,""))
     logging.config.fileConfig("./conf/conf_log.txt", defaults={'logdir': os.path.join(u"D:/Money/lilton_code/Market_Mode/learnModule/logs/%s"%ID, "")})

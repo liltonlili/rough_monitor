@@ -25,6 +25,21 @@ def parse_content(content):
         raise Exception
     return [stock_ids,stock_dates,stock_types]
 
+def parse_dc_content(content):
+    content = content.replace("([","[").replace("])", "]")
+    content_list = eval(content)
+    stock_ids = []
+    stock_dates = []
+    stock_types = []
+    for items in content_list:
+        item = items.split(",")
+        if len(item[13]) < 1:   # 无上市日期的，不处理
+            continue
+        stock_ids.append(item[4])
+        stock_dates.append(item[13])
+        stock_types.append("N")
+    return [stock_ids,stock_dates,stock_types]
+
 
 
 def update_Mongo(stockId,stockDate):
@@ -39,13 +54,17 @@ def update_Mongo(stockId,stockDate):
 
 
 def fresh_newStockWebsite():
-    # pages = [1, 2, 3, 4]
-    pages = [1]
+    pages = [1, 2, 3, 4]
+    # pages = [1]
+    source = 1 # 0代表中财网数据引擎， 1代表东方财富网站
     mongoUrl = "localhost"
     global mongodb
     mongodb = pymongo.MongoClient(mongoUrl)
     for page in pages:
-        url = "http://data.cfi.cn/cfidata.aspx?sortfd=&sortway=&curpage=%s&fr=content&ndk=A0A1934A1939A1946A1982&xztj=&mystockt="%page
+        if source == 0:
+            url = "http://data.cfi.cn/cfidata.aspx?sortfd=&sortway=&curpage=%s&fr=content&ndk=A0A1934A1939A1946A1982&xztj=&mystockt="%page
+        else:
+            url = "http://datainterface.eastmoney.com/EM_DataCenter/JS.aspx?type=NS&sty=NSSTV5&st=12&sr=-1&p=%s&ps=50"%page
         print "scan new stock page %s"%page
         for i in range(0,5):
             r = requests.get(url=url)
@@ -57,14 +76,19 @@ def fresh_newStockWebsite():
         content = r.content
 
         try:
-            [stock_ids,stock_dates,stock_types] = parse_content(content)
+            if source == 0:
+                [stock_ids,stock_dates,stock_types] = parse_content(content)
+            else:
+                [stock_ids,stock_dates,stock_types] = parse_dc_content(content)
         except Exception,e:
             print e
+
 
         for i in range(len(stock_ids)):
             stockId = stock_ids[i].strip()
             stockDate = stock_dates[i].strip()
-            if stockDate == "--":
+            stockDate = common.format_date(stockDate, "%Y%m%d")
+            if stockDate == "--" or stockDate > datetime.datetime.today().strftime("%Y%m%d"):
                 continue
             else:
                 update_Mongo(stockId,stockDate)

@@ -1,97 +1,50 @@
-#coding:utf-8
-import numpy as np  
-import argparse  
-import cv2
-import common
-# image = cv2.imread('huang.png')
-# color = [
-#     ([0, 70, 70], [100, 255, 255])#黄色范围~这个是我自己试验的范围，可根据实际情况自行调整~注意：数值按[b,g,r]排布
-# ]
-# #如果color中定义了几种颜色区间，都可以分割出来
-# for (lower, upper) in color:
-#     # 创建NumPy数组
-#     lower = np.array(lower, dtype = "uint8")#颜色下限
-#     upper = np.array(upper, dtype = "uint8")#颜色上限
-#
-#     # 根据阈值找到对应颜色
-#     mask = cv2.inRange(image, lower, upper)
-#     output = cv2.bitwise_and(image, image, mask = mask)
-#
-#     # 展示图片
-#     cv2.imshow("images", np.hstack([image, output]))
-#     cv2.waitKey(0)
-
-# print common.get_latest_news("002436")
-
-#coding:utf-8
-# import matplotlib.pyplot as plt
-# import pandas as pd
-# import matplotlib
-# import numpy as np
-# from matplotlib.font_manager import FontProperties
-# import os
-# import matplotlib as mpl
-# from matplotlib import *
-#
-# import matplotlib.dates as mdates
-# myFmt = mdates.DateFormatter('%Y-%m-%d')
-# myfont = matplotlib.font_manager.FontProperties(fname=os.path.join(u'C:/Users/li.li/Downloads/医药数据分析代码','wqy-microhei.ttc'))
-# mpl.rcParams['axes.unicode_minus'] = False
-
-
-# def plot_text(ax, texts, n, fontsize = 20):
-# # fig = plt.figure()
-# # ax1 = fig.add_subplot(111)
-# # n = 3
-# # texts = [u'这个是测试样例1', u'这个是测试样例2', u'这个是测试样例3']
-#     t_list = []
-#     for i in range(n):
-#         s_list = pd.Series([i+1]*6)
-#         t_list.append(s_list)
-#     fframe = pd.concat(t_list, axis=1)
-#
-#     i = 0
-#     for col in fframe.columns:
-#         ax.plot(fframe.index.values, fframe[col], 'w')
-#         ax.annotate(texts[i], xy=(1, i+1), fontproperties=myfont, fontsize = 20)
-#         i += 1
-#
-# # ax1.annotate(['a','b'],())
-# plt.show()
-# print fframe
+#!/usr/bin/python
+# -*- coding:UTF-8 -*-
+from os import path
+from scipy.misc import imread
 import matplotlib.pyplot as plt
-import common
-# fig = plt.figure()
-# ax1 = fig.add_subplot(111)
-# n = 3
-# texts = [u'这个是测试样例1', u'这个是测试样例2', u'这个是测试样例3']
-# common.plot_text(ax1, texts, n)
-# plt.show()
-
-# import datetime
-# import LearnFrom
-# import trace_yesterday
+from matplotlib.font_manager import FontProperties
+from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
+import os
+import sys
+# reload(sys)
+# sys.setdefaultencoding('utf-8')
 #
-# trace_yesterday.generate_fp_pic("002468", "./", "")
-# stockid = '002468'
-# fig = plt.figure()
-# # 画个股分时图
-# ax1 = fig.add_subplot(221)
-# endDate = "20161027"
-# stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
-# yesterday = common.get_lastN_date(endDate, 1)
-# print yesterday
-# pre_close = common.get_mysqlData([stockid],[yesterday]).loc[0,'CLOSE_PRICE']
-# print pre_close
-# LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close=pre_close)
-# ax1.grid(True)
-# # 画上证分时图
-# ax2 = fig.add_subplot(223)
-# sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
-# LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1, pre_close=pre_close)
-# ax2.grid(True)
+# d = path.dirname(__file__)
+#
+# # Read the wholedd text.
+# # text = open(path.join(d, 'alice_result.txt')).read()
+#
+# # read the mask / color image
+# # taken from http://jirkavinse.deviantart.com/art/quot-Real-Life-quot-Alice-282261010
+# alice_coloring = imread(path.join(d, u"轿车.jpg"))
+#
+# wc = WordCloud(font_path = os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'), background_color="white", max_words=2000000, mask=alice_coloring,
+#                stopwords=STOPWORDS.add("said"),
+#                max_font_size=50, random_state=42)
+# # generate word cloud
+# # wc.generate(text)
+# with open(os.path.join(u'D:/projects/bussiness/car/深度报告', u'轿车.txt'), 'rb') as fHandler:
+#     text_dict = eval(fHandler.read())
+# print "text_dict"
+# wc.generate_from_frequencies(text_dict)
+# # create coloring from image
+# image_colors = ImageColorGenerator(alice_coloring)
+#
+# # show
+# plt.imshow(wc)
+# plt.axis("off")
+# plt.figure()
+# # recolor wordcloud and show
+# # we could also give color_func=image_colors directly in the constructor
+# plt.imshow(wc.recolor(color_func=image_colors))
+# plt.axis("off")
+# plt.figure()
+# plt.imshow(alice_coloring, cmap=plt.cm.gray)
+# plt.axis("off")
 # plt.show()
-
+# #save img
+# wc.to_file(path.join(d, "cloudimg.png"))
 import common
-import tushare as ts
-mysqls = common.mysqldata()
+
+print common.find_concept("000017", "20161223")[0]

@@ -17,14 +17,16 @@ import json
 import matplotlib as mpl
 from matplotlib import *
 from matplotlib.font_manager import FontProperties
+sys.path.append("D:/projects/report_download/src/lib")
+import http_downloader
 
 # myFmt = mpl.mdates.DateFormatter('%Y-%m-%d')
 myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
 mpl.rcParams['axes.unicode_minus'] = False
 mongourl = "localhost"
-global mongodb
+global mongodb, backsee_csv
 mongodb = pymongo.MongoClient(mongourl)
-
+backsee_csv = u'D:/Money/modeResee/复盘'
 
 
 
@@ -48,24 +50,38 @@ class mysqldata:
         (self.mydbs,self.mydb,self.dydb,self.localdb,self.cardb,self.souhudbs,self.souhudbi)=connectdb()
 
     def dydbs_query(self,sqlquery):
+        self.mydbs.db.ping(True)
+        self.mydbs.db.cursor()
         return pd.read_sql(sqlquery,con=self.mydbs.db)
 
     def dydb_query(self,sqlquery):
+        self.dydb.db.ping(True)
+        self.dydb.db.cursor()
         return pd.read_sql(sqlquery,con=self.dydb.db)
 
     def mydb_query(self,sqlquery):
+        self.mydb.db.ping(True)
+        self.mydb.db.cursor()
         return pd.read_sql(sqlquery,con=self.mydb.db)
 
     def localdb_query(self,sqlquery):
+        self.localdb.db.ping(True)
+        self.localdb.cursor()
         return pd.read_sql(sqlquery,con=self.localdb.db)
 
     def car_query(self,sqlquery):
+        self.cardb.db.ping(True)
+        self.cardb.cursor()
         return pd.read_sql(sqlquery,con=self.cardb.db)
 
     def souhus_query(self,sqlquery):
+        self.souhudbs.db.ping(True)
+        self.souhudbs.cursor()
         return pd.read_sql(sqlquery,con=self.souhudbs.db)
 
     def souhui_query(self,sqlquery):
+        self.souhudbi.db.ping(True)
+        self.souhudbi.cursor()
         return pd.read_sql(sqlquery,con=self.souhudbi.db)
     ## stockid,stockname,concept1,concept2,concept3,concept4,concept5,concept6
     def generate_localdb_query(self,*args):
@@ -407,11 +423,21 @@ def get_little_sina_data(slist):
     #     print url
     try:
         r=requests.get(url)
+        content=r.content.decode('gbk')
+        Dframe=parse_content(content)
+        return Dframe
     except:
-        r=requests.get(url)
-    content=r.content.decode('gbk')
-    Dframe=parse_content(content)
-    return Dframe
+        while True:
+            try:
+                ip = http_downloader.get_proxyip(dynamic=False)
+                proxies = {'http':'http://{}:{}'.format(ip['host'], ip['port'])}
+                r=requests.get(url, proxies=proxies)
+                content=r.content.decode('gbk')
+                Dframe=parse_content(content)
+                return Dframe
+            except:
+                print "Exception when get, will retry"
+
 
 
 ## 解析从新浪下载的数据
@@ -641,20 +667,38 @@ def plotFrame(dataFrame,x='',y=[],titles=[],point=100, marker=False):
 # 返回是['中国重工', 601989]
 def QueryStockMap(id='',name=''):
     global mongodb
-    if id != '':
-        queryResult = mongodb.stock.stockmap.find_one({"stockid":id})
-        if queryResult is not None:
-            return [queryResult['stock_name'],queryResult['stockid']]
+    try:
+        if id != '':
+            id = regulize_stockid(id)
+            queryResult = mongodb.stock.stockmap.find({"stockid":id}).sort("updatetime",pymongo.DESCENDING)[0]
+            if queryResult is not None:
+                return [queryResult['stock_name'],queryResult['stockid']]
+            else:
+                print "[WARNING], QueryStockMap for id:%s, will return 0" % id
+                return [0,0]
+        elif name != '':
+            queryResult = mongodb.stock.stockmap.find({"stock_name":name}).sort("updatetime",pymongo.DESCENDING)[0]
+            if queryResult is not None:
+                return [queryResult['stock_name'],queryResult['stockid']]
+            else:
+                print "[WARNING], QueryStockMap for name:%s, will return 0" % name
+                return [0,0]
         else:
+            print "[WARNING], QueryStockMap return 0 for unexpected reason, id:%s, name:%s" % (id, name)
             return [0,0]
-    elif name != '':
-        queryResult = mongodb.stock.stockmap.find_one({"stock_name":name})
-        if queryResult is not None:
-            return [queryResult['stock_name'],queryResult['stockid']]
-        else:
-            return [0,0]
-    else:
+    except:
+        print "[WARNING], QueryStockMap return 0 for unexpected reason, id:%s, name:%s" % (id, name)
         return [0,0]
+
+
+def regulize_stockid(id):
+    if id != id:
+        return ""
+    elif len(str(id).replace(u' ', u'')) == 0:
+        return ""
+    else:
+        return '0'*(6-len(str(int(float(id))))) + str(int(float(id)))
+
 
 # 根据条件，对stockList中的股票进行弹窗提示，返回符合条件的List,股票代码
 def WindowShow(stockList, operate, number, message):
@@ -984,3 +1028,112 @@ def plot_text(ax, texts, fontsize = 20):
     ax.spines['right'].set_color('none')
     ax.spines['bottom'].set_color('none')
     ax.axis('off')
+
+
+# 给出一个stockid，日期
+# 找到对应的concept，以及相关股票id
+# 先从前10日的csv中找，如果没找到，则从L1中找，如果没找到，再到L2中找，再没找到，就为空
+# 从前10日的csv找到概念之后，先去L1找关联股票，找不到时候再去L2
+# 返回['concept', [关联股票ids]]
+def find_concept(stockid, date):
+    concept = ""
+    ids = []
+    stockid = str(int(float(stockid)))
+    stockid = '0'*(6-len(stockid)) + stockid
+    csv_concept = get_csv_concept(stockid, date)
+    if csv_concept == '':       # 在前10日的daydayup中找不到
+        L1_concept = get_cacheinfos_by_id(stockid, cache=1)
+        if L1_concept[0] == "":     # 在L1中也找不到
+            L2_concept = get_cacheinfos_by_id(stockid, cache=2)
+            concept = L2_concept[0]
+            ids = L2_concept[1]
+        else:
+            concept = L1_concept[0]
+            ids = L1_concept[1]
+    else:
+        concept = csv_concept
+        ids = find_ids(concept)
+    return [concept, ids]
+
+
+# 找到对应的股票
+def find_ids(concept):
+    ids = get_id_from_concept(concept, cache=1)
+    if len(ids) == 0:
+        ids = get_id_from_concept(concept, cache=2)
+    return ids
+
+
+
+# 根据日期，从csv中找到股票的concept，默认是从昨天到5天之前
+# 返回是'concept'，如果找不到，则是''
+def get_csv_concept(stockid, date, period=10):
+    global backsee_csv
+    concept = ''
+    for i in range(1,period+1):
+        search_date = get_lastN_date(date, i)   # 搜索日期
+        search_date = format_date(search_date, "%Y%m%d")
+        try:
+            dframe = pd.read_csv(os.path.join(backsee_csv, "%s/daydayup.csv" % search_date), encoding='gbk')
+            dframe.dropna(subset=['stock'], inplace=True)
+            dframe['stockid'] = dframe['stock'].apply(lambda x: int(float(x)))      # 都转换成整数型
+            dframe.dropna(subset=['group'], inplace=True)   # 将不含group的行删除
+            tframe = dframe[dframe.stock == int(float(stockid))]
+            columns = list(tframe.columns)
+            n_group = columns.index(u'group')
+            if len(tframe) > 0:
+                concept = tframe.iloc[0, n_group]
+                break
+        except Exception, err:
+            print "Search Error for daydayup on %s, err:%s, will skip this day" % (search_date, err)
+    return concept
+
+# 从数据库cache中找到股票对于的concept以及关联stocks
+# 返回['概念名称', '相关概念的所有股票列表']
+# 如果没找到，则返回['', []]
+def get_cacheinfos_by_id(stockid, cache=1):
+    global mongodb
+    if cache == 1:
+        result = mongodb.concepts.L1.find_one({"stockid": stockid})
+    else:
+        result = mongodb.concepts.L2.find_one({"stockid": stockid})
+
+    if result is None:  # 说明在cache中，没有该股票
+        return ["", []]
+    else:
+        return result['concept'], get_id_from_concept(result['concept'], cache)
+
+
+# 从数据库cache中，根据concept得到所有的股票ID，返回list，如果L1中不存在该概念，则返回[]
+def get_id_from_concept(concept, cache=1):
+    global mongodb
+    ids = []
+
+    if cache == 1:
+        results = mongodb.concepts.L1.find({"concept": concept})
+    else:
+        results = mongodb.concepts.L2.find({"concept": concept})
+
+    if results.count() == 0:
+        return ids
+    else:
+        for result in results:
+            ids.append(result['stockid'])
+        return ids
+
+
+# 判断股票、概念组合是否在cache中
+def exist_in_cache(stockid, concept, cache = 1):
+    global mongodb
+    if concept == "":
+        return 0
+    else:
+        stockid = '0'*(6-len(str(int(float(stockid))))) + str(int(float(stockid)))
+        if cache == 1:
+            result = mongodb.concepts.L1.find_one({"stockid": stockid, "concept":concept})
+        else:
+            result = mongodb.concepts.L2.find_one({"stockid": stockid, "concept":concept})
+        if result is None:
+            return 0
+        else:
+            return 1

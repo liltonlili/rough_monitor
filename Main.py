@@ -71,21 +71,25 @@ class MainProc:
             print "update ZDT stocks and number for %s"%str_date
             dayFrame = fullFrame[fullFrame.TRADE_DATE==date]
             ztList=dayFrame[dayFrame.CLOSE_PRICE>=dayFrame.ztprice]['TICKER_SYMBOL'].values
+            ztList = list(set(ztList))
             ztList=["0"*(6-len(str(x)))+str(x) for x in ztList]
             ztnum = len(ztList)
             ztList="_".join(ztList)
 
             dtList=dayFrame[dayFrame.CLOSE_PRICE<=dayFrame.dtprice]['TICKER_SYMBOL'].values
             dtList=["0"*(6-len(str(x)))+str(x) for x in dtList]
+            dtList = list(set(dtList))
             dtnum = len(dtList)
             dtList="_".join(dtList)
 
             hiList=dayFrame[(dayFrame.HIGHEST_PRICE>=dayFrame.ztprice) & (dayFrame.CLOSE_PRICE<dayFrame.ztprice)]['TICKER_SYMBOL'].values
             hiList=["0"*(6-len(str(x)))+str(x) for x in hiList]
+            hiList = list(set(hiList))
             hiList="_".join(hiList)
 
             lowList=dayFrame[(dayFrame.LOWEST_PRICE==dayFrame.dtprice) & (dayFrame.CLOSE_PRICE>dayFrame.dtprice)]['TICKER_SYMBOL'].values
             lowList=["0"*(6-len(str(x)))+str(x) for x in lowList]
+            lowList = list(set(lowList))
             lowList="_".join(lowList)
 
             # print dayFrame[(dayFrame.LOWEST_PRICE==dayFrame.dtprice) & (dayFrame.CLOSE_PRICE>dayFrame.dtprice)]
@@ -145,10 +149,18 @@ class MainProc:
         ##和涨停股票进行比较
         todayZTs = todayResult['ZT_stocks'].split("_")      ##今日涨停股票
         freshStocks = [x for x in yesFreshStocks if x in todayZTs]      ##今日的次新一字涨停股
+        # 对于不在todayZTs中的新股，如果是临时停牌或者其它原因，不应该去除
+        recheckStocks = [x for x in yesFreshStocks if x not in todayZTs]
+        for stocks in recheckStocks:
+            recheckFrame = common.get_daily_frame(stocks, cdate, cdate)
+            if recheckFrame.loc[0, 'HIGHEST_PRICE'] == 0:
+                print "will add %s to freshlist because abnormal situation" % stocks
+                freshStocks.append(stocks)
         freshStocks.extend(todayNewadds)
         openedFreshStocks = [x for x in yesFreshStocks if x not in todayZTs and x not in todayNewadds]    ##次新股中今天的开板股票
         actulZtStocks = [x for x in todayZTs if x not in yesFreshStocks]    ##去除次新股的今日自然涨停股票
 
+        freshStocks = list(set(freshStocks))
         freshStocks = "_".join(freshStocks)
         openedFreshStocks = "_".join(openedFreshStocks)
         actulZtStocks = "_".join(actulZtStocks)
@@ -264,10 +276,11 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    MP.update_ZDT_stocksNum_ALL(dateEq="20161116")
-    # MP.update_ZDT_stocksNum_ALL(dateStart = '20161112', dateEnd = '20161115')
-    MP.update_freshStocks(dateEq="20161116")
-    # MP.update_freshStocks(dateStart = '20161112', dateEnd = '20161115')
+    # MP.update_ZDT_stocksNum_ALL(dateEq="20161021")
+
+    MP.update_ZDT_stocksNum_ALL(dateStart = '20161216', dateEnd = '20161221')
+    # MP.update_freshStocks(dateEq="20161021")
+    MP.update_freshStocks(dateStart = '20161216', dateEnd = '20161221')
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -282,7 +295,8 @@ if __name__ == "__main__":
     #         MP.update_ZDT_stocksNum([],[date])
             # print date
 
-    MP.update_ZDT_contsNum(dateEq="20161116")
-    MP.update_ZDT_yesterday(dateEq="20161116")
-    # MP.update_ZDT_contsNum(dateStart = '20161112', dateEnd = '20161115')
-    # MP.update_ZDT_yesterday(dateStart = '20161112', dateEnd = '20161115')
+    # MP.update_ZDT_contsNum(dateEq="20161021")
+    # MP.update_ZDT_yesterday(dateEq="20161021")
+
+    MP.update_ZDT_contsNum(dateStart = '20161216', dateEnd = '20161221')
+    MP.update_ZDT_yesterday(dateStart = '20161216', dateEnd = '20161221')

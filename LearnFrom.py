@@ -257,8 +257,8 @@ def study_plot(code,ddate, dframe_dict, dirs):
     zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证指数"'%(table,endDate)
     sh = common.get_mydb_sqlquery(zssql)
     if len(sh) == 0:
-        table = "MarketDataL1.equity_pricemin%s"%tableTime
-        zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证指数"'%(table,endDate)
+        table = "MarketDataTDB.equity_pricemin%s"%tableTime
+        zssql = 'SELECT * from %s where datadate = %s and ticker = 1 and shortnm = "上证综指"'%(table,endDate)
         sh = common.get_mydb_sqlquery(zssql)
 
     ##临时增加，需要保存数据
@@ -332,8 +332,8 @@ def main():
     # read_dir = "D:\Money\lilton_code\Market_Mode\learnModule"
     # read_dir = "D:\Money\lilton_code\Market_Mode\other"
     # read_file = "other.csv"
-    read_dir = u'D:\Money\lilton_code\Market_Mode\learnModule\lhc_pic\save'
-    read_file = u'令胡冲交割单_带时间.csv'
+    read_dir = u'D:/Money/lilton_code/Market_Mode/learnModule/著名刺客分析'
+    read_file = u'刺客201411月.csv'
 
     ##read_content format
     # 成交日期	成交时间	证券代码	证券名称	操作	成交数量	成交均价	成交金额	发生金额	本次金额
@@ -345,12 +345,16 @@ def main():
     # dframe.dropna(inplace=True)
 
     exception_log = open(os.path.join("D:\Money\lilton_code\Market_Mode\learnModule","exception_lhc.log"),'w')
-    plot_dir = u"D:\Money\lilton_code\Market_Mode\交割单\令胡冲"
+    plot_dir = u"D:/Money/lilton_code/Market_Mode/交割单/著名刺客"
+    if os.path.exists(os.path.join(plot_dir, "")):
+        pass
+    else:
+        os.makedirs(os.path.join(plot_dir, ""))
 
     for date in np.unique(dframe.date.values):
     # for date in [20150113,20150302,20150312,20150506,20150511,20150713,20150714,20150729,20150807,20150921,20150922,20150923,20150924,20150925,20150928,20150929,20150930,20151008]:
         try:
-            date = "2015/5/6"
+            # date = "2015/5/6"
             date1 = int(common.format_date(date,"%Y%m%d"))
             # if date < 20150201:
             #     continue
@@ -380,7 +384,7 @@ def main():
         except Exception,e:
             print "Exceptions: %s, in %s"%(e,date)
             exception_log.write("Exceptions: %s, in %s"%(e,date))
-        break
+        # break
     exception_log.close()
 
 if __name__ == '__main__':

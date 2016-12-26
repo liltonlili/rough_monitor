@@ -20,21 +20,25 @@ from matplotlib.font_manager import FontProperties
 myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
 
 class top_statistic:
-    def __init__(self):
-        cday = datetime.date.today().strftime('%Y/%m/%d')
-        self.today = datetime.date.today().strftime('%Y%m%d')
-        # cday = "2016/11/11"
-        # self.today = "20161111"
-        self.redis = redis.Redis(host='localhost', port=6379, db=1)
-        calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
-        del calframe['0']
-        calframe.columns=['Time']
-        calList=calframe['Time'].values
-        calList=list(calList)
-        yesterday=calList[calList.index(cday)-1]
+    def __init__(self, day = datetime.date.today().strftime("%Y%m%d")):
+        cday = common.format_date(day, "%Y/%m/%d")
+        self.today = common.format_date(day, "%Y%m%d")
+        # cday = datetime.date.today().strftime('%Y/%m/%d')
+        # self.today = datetime.date.today().strftime('%Y%m%d')
 
-        yesterday_mongo = datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y%m%d")
-        yesterday=datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y-%m-%d")
+        self.redis = redis.Redis(host='localhost', port=6379, db=1)
+        yesterday = common.get_last_date(cday)
+        yesterday_mongo = common.format_date(yesterday, "%Y%m%d")
+        yesterday = common.format_date(yesterday, "%Y-%m-%d")
+        # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+        # del calframe['0']
+        # calframe.columns=['Time']
+        # calList=calframe['Time'].values
+        # calList=list(calList)
+        # yesterday=calList[calList.index(cday)-1]
+        # yesterday_mongo = datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y%m%d")
+        # yesterday=datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y-%m-%d")
+
 
         self.yesterday=yesterday
         ## get info of yesterday
@@ -123,6 +127,7 @@ class top_statistic:
                 Sframe.loc[self.count,'hposr']=1000
                 Sframe.loc[self.count,'hmean']=1000
 
+            # if 1:
             if (thour > 15) or (thour == 15 and tmin > 10):
                 while not self.mongodb.stock.ZDT_by_date.find({"date":self.today}):
                     time.sleep(60)
@@ -137,7 +142,6 @@ class top_statistic:
                 print Sframe            ##实时显示当前情况
                 self.genCsv()
                 self.calCons()
-
                 break
             del Sframe['dmean']
             print Sframe            ##实时显示当前情况
@@ -170,6 +174,7 @@ class top_statistic:
             thour=ttime.tm_hour
             tmin=ttime.tm_min
             if (thour > 18) or (thour == 18 and tmin > 5):
+            # if 1:
                 Aframe = self.get_csv(detailinfos, png_enable = 1)
                 Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
                 break
@@ -181,6 +186,11 @@ class top_statistic:
         c_date = self.today
         constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
         Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
+
+        # 生成 "是否最强.bat"， 用来复盘后生成html文件
+        with open(os.path.join(constant_dir, u"1是否最强.bat"), 'wb') as fHandler:
+            fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
+
 
     def get_csv(self, detailinfos, png_enable = 0):
         ztStocks = detailinfos['actulZtStocks'].split("_")
@@ -196,60 +206,98 @@ class top_statistic:
         if not os.path.exists(constant_dir):
             os.makedirs(constant_dir)
 
-        for ztStock in ztStocks:
-            Aframe.loc[i,'stock']=ztStock
-            Aframe.loc[i,'name'] = common.QueryStockMap(id = ztStock)[0]
-            Aframe.loc[i,'reason']='0'
-            Aframe.loc[i,'type']='ZT'
-            Aframe.loc[i,'desc']='record'
-            Aframe.loc[i,'news'] = common.get_latest_news(ztStock)
-            if png_enable == 1:
-                generate_fp_pic(ztStock, constant_dir, Aframe.loc[i,'news'], self.today)
-            i+=1
+        type_list = ['ZT', 'HD', 'DT', 'meat', 'hole']
+        stock_list = [ztStocks, hdStocks, dtStocks, meatStocks, holeStocks]
+        for t in range(0, len(type_list)):
+            stocks_list = stock_list[t]
+            stock_type = type_list[t]
+            for stockid in stocks_list:
+                print "stockid:", stockid
+                stockid = common.regulize_stockid(stockid)
+                if len(stockid) != 6:
+                    continue
 
-        for hdStock in hdStocks:
-            Aframe.loc[i,'stock']=hdStock
-            Aframe.loc[i,'name'] = common.QueryStockMap(id = hdStock)[0]
-            Aframe.loc[i,'reason']='0'
-            Aframe.loc[i,'type']='HD'
-            Aframe.loc[i,'desc']='record'
-            Aframe.loc[i,'news'] = common.get_latest_news(hdStock)
-            if png_enable == 1:
-                generate_fp_pic(hdStock, constant_dir, Aframe.loc[i,'news'], self.today)
-            i+=1
+                Aframe.loc[i,'stock'] = stockid
+                Aframe.loc[i,'name'] = common.QueryStockMap(id = stockid)[0]
+                Aframe.loc[i,'reason']='0'
+                Aframe.loc[i,'type']=stock_type
+                Aframe.loc[i,'desc']='record'
 
-        for dtStock in dtStocks:
-            Aframe.loc[i,'stock']=dtStock
-            Aframe.loc[i,'name'] = common.QueryStockMap(id = dtStock)[0]
-            Aframe.loc[i,'reason']='0'
-            Aframe.loc[i,'type']='DT'
-            Aframe.loc[i,'desc']='record'
-            Aframe.loc[i,'news'] = common.get_latest_news(dtStock)
-            if png_enable == 1:
-                generate_fp_pic(dtStock, constant_dir, Aframe.loc[i,'news'], self.today)
-            i+=1
+                # 先获得对于的group以及stocklist
+                [group, group_stocklist] = common.find_concept(stockid, self.today)
+                if len(group_stocklist) > 8:  # 太长了显示出来也没用
+                    anotation = "too long"
+                else:
+                    anotation = ",".join([common.QueryStockMap(x)[0] for x in group_stocklist])
 
-        for meatStock in meatStocks:
-            Aframe.loc[i,'stock']=meatStock
-            Aframe.loc[i,'name'] = common.QueryStockMap(id = meatStock)[0]
-            Aframe.loc[i,'reason']='0'
-            Aframe.loc[i,'type']='meat'
-            Aframe.loc[i,'desc']='record'
-            Aframe.loc[i,'news'] = common.get_latest_news(meatStock)
-            if png_enable == 1:
-                generate_fp_pic(meatStock, constant_dir, Aframe.loc[i,'news'], self.today)
-            i+=1
+                # 将概念和相关股票打印进去
+                Aframe.loc[i, 'group'] = group
+                inL1 = common.exist_in_cache(stockid, group, 1)
+                inL2 = common.exist_in_cache(stockid, group, 2)
+                Aframe.loc[i, 'inL1'] = inL1
+                Aframe.loc[i, 'inL2'] = inL2
+                Aframe.loc[i, 'anotation'] = anotation
+                Aframe.loc[i, 'reason2'] = ''
+                Aframe.loc[i, 'news'] = common.get_latest_news(stockid)
+                if png_enable == 1:
+                    generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
+                i += 1
 
-        for holeStock in holeStocks:
-            Aframe.loc[i,'stock']=holeStock
-            Aframe.loc[i,'name'] = common.QueryStockMap(id = holeStock)[0]
-            Aframe.loc[i,'reason']='0'
-            Aframe.loc[i,'type']='hole'
-            Aframe.loc[i,'desc']='record'
-            Aframe.loc[i,'news'] = common.get_latest_news(holeStock)
-            if png_enable == 1:
-                generate_fp_pic(holeStock, constant_dir, Aframe.loc[i,'news'], self.today)
-            i+=1
+        # for hdStock in hdStocks:
+        #     Aframe.loc[i,'stock']=hdStock
+        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = hdStock)[0]
+        #     Aframe.loc[i,'reason']='0'
+        #     Aframe.loc[i,'type']='HD'
+        #     Aframe.loc[i,'desc']='record'
+        #     Aframe.loc[i, 'group'] = ''
+        #     Aframe.loc[i, 'anotation'] = ''
+        #     Aframe.loc[i, 'reason2'] = ''
+        #     Aframe.loc[i,'news'] = common.get_latest_news(hdStock)
+        #     if png_enable == 1:
+        #         generate_fp_pic(hdStock, constant_dir, Aframe.loc[i,'news'], self.today)
+        #     i+=1
+        #
+        # for dtStock in dtStocks:
+        #     Aframe.loc[i,'stock']=dtStock
+        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = dtStock)[0]
+        #     Aframe.loc[i,'reason']='0'
+        #     Aframe.loc[i,'type']='DT'
+        #     Aframe.loc[i,'desc']='record'
+        #     Aframe.loc[i, 'group'] = ''
+        #     Aframe.loc[i, 'anotation'] = ''
+        #     Aframe.loc[i, 'reason2'] = ''
+        #     Aframe.loc[i,'news'] = common.get_latest_news(dtStock)
+        #     if png_enable == 1:
+        #         generate_fp_pic(dtStock, constant_dir, Aframe.loc[i,'news'], self.today)
+        #     i+=1
+        #
+        # for meatStock in meatStocks:
+        #     Aframe.loc[i,'stock']=meatStock
+        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = meatStock)[0]
+        #     Aframe.loc[i,'reason']='0'
+        #     Aframe.loc[i,'type']='meat'
+        #     Aframe.loc[i,'desc']='record'
+        #     Aframe.loc[i, 'group'] = ''
+        #     Aframe.loc[i, 'anotation'] = ''
+        #     Aframe.loc[i, 'reason2'] = ''
+        #     Aframe.loc[i,'news'] = common.get_latest_news(meatStock)
+        #     if png_enable == 1:
+        #         generate_fp_pic(meatStock, constant_dir, Aframe.loc[i,'news'], self.today)
+        #     i+=1
+        #
+        # for holeStock in holeStocks:
+        #     Aframe.loc[i,'stock']=holeStock
+        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = holeStock)[0]
+        #     Aframe.loc[i,'reason']='0'
+        #     Aframe.loc[i,'type']='hole'
+        #     Aframe.loc[i,'desc']='record'
+        #     Aframe.loc[i, 'group'] = ''
+        #     Aframe.loc[i, 'anotation'] = ''
+        #     Aframe.loc[i, 'reason2'] = ''
+        #     Aframe.loc[i,'news'] = common.get_latest_news(holeStock)
+        #     if png_enable == 1:
+        #         generate_fp_pic(holeStock, constant_dir, Aframe.loc[i,'news'], self.today)
+        #     i+=1
         return Aframe
 
 # def generate_fp_pic(stockid, dir, news):
@@ -351,10 +399,6 @@ def generate_fp_pic(stockid, dir, news, endDate):
     common.plot_text(ax3, texts1, fontsize=8)
     common.plot_text(ax4, texts2, fontsize=8)
     plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
-
-
-
-
 
 if __name__=="__main__":
     z=top_statistic()

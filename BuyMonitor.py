@@ -113,7 +113,7 @@ class BuyMonitor:
 
             timestamp=time.strftime("%X",time.localtime())
 
-            print timestamp
+            print "Buy Monitor:", timestamp
             # p = multiprocessing.Process(target=self.freshList, args=(u'次新8个点以上提示',"gt",8.5,self.fresh_prestr))
             # p.start()
             self.HandleWindow(self.freshList,u'次新7个点以上提示',"gt",7,"TelledFreshStocks")

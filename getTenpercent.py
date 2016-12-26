@@ -10,6 +10,7 @@ import time
 import numpy as np
 import multiprocessing
 import datetime
+import redis
 
 import pymongo
 
@@ -43,7 +44,7 @@ class rtMonitor:
 
     def get_summarize_day(self):
         self.cdate =datetime.date.today().strftime("%Y-%m-%d")
-        # self.cdate = "2016-05-20"
+        # self.cdate = "2016-12-16"
         self.ttframe = self.get_price_frame()
         self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
         self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
@@ -165,5 +166,6 @@ class rtMonitor:
         self.count+=1
 
 if __name__=='__main__':
-    z=rtMonitor()
+    redis = redis.Redis(host='localhost', port=6379, db=1)
+    z=rtMonitor(redis)
     z.runBatch()

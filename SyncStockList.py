@@ -13,11 +13,16 @@ LocalServer = pymongo.MongoClient(local_mongo)
 stores = MongoServer.reports_db.stock.find({})
 count = 0
 for store in stores:
+    if store['stockid'] in [u'SZ000006CN', u'SZ000019CN']:
+        continue
     exists = LocalServer.stock.stockmap.find_one({"stock_name":store['stock_name'],"stockid":store['stockid'].replace("SH","").replace("SZ","").replace("CN","")})
     if exists is None:
-        store['stockid'] = store['stockid'].replace("SH","").replace("SZ","").replace("CN","")
-        LocalServer.stock.stockmap.update({"stock_name":store['stock_name'],"stockid":store['stockid'].replace("SH","").replace("SZ","").replace("CN","")},
-                                          {"$set":store},True)
-        count += 1
-        print "Add %s,%s"%(store['stockid'],store['stock_name'])
+        try:
+            store['stockid'] = store['stockid'].replace("SH","").replace("SZ","").replace("CN","")
+            LocalServer.stock.stockmap.update({"stock_name":store['stock_name'],"stockid":store['stockid'].replace("SH","").replace("SZ","").replace("CN","")},
+                                              {"$set":store},True, True)
+            count += 1
+            print "Add %s,%s"%(store['stockid'],store['stock_name'])
+        except Exception, err:
+            print "skip update stock map, stockname:%s, stockid:%s" % (store['stock_name'], store['stockid'])
 print "%s stock map is added in total"%count
