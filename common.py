@@ -687,7 +687,7 @@ def QueryStockMap(id='',name=''):
             print "[WARNING], QueryStockMap return 0 for unexpected reason, id:%s, name:%s" % (id, name)
             return [0,0]
     except:
-        print "[WARNING], QueryStockMap return 0 for unexpected reason, id:%s, name:%s" % (id, name)
+        print "[WARNING], QueryStockMap return 0 for unexpected reasons, id:%s, name:%s" % (id, name)
         return [0,0]
 
 
@@ -853,6 +853,7 @@ def get_price_from_redis(stock_lists, rediser):
         count = 0
         # print timestamp
         for stockid in stock_lists:
+            # print stockid
             redis_value = eval(rediser.get(stockid))
             if len(redis_value) != 5:
                 continue

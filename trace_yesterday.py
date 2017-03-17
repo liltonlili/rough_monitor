@@ -20,25 +20,20 @@ from matplotlib.font_manager import FontProperties
 myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
 
 class top_statistic:
-    def __init__(self, day = datetime.date.today().strftime("%Y%m%d")):
+    def __init__(self, day = datetime.date.today().strftime("%Y%m%d"), force_dump=0):
         cday = common.format_date(day, "%Y/%m/%d")
+        self.force_dump = force_dump
         self.today = common.format_date(day, "%Y%m%d")
-        # cday = datetime.date.today().strftime('%Y/%m/%d')
-        # self.today = datetime.date.today().strftime('%Y%m%d')
-
         self.redis = redis.Redis(host='localhost', port=6379, db=1)
+        # 如果不是当天，则需要重新写redis的值
+        actual_day = datetime.date.today()
+        actual_day = common.format_date(actual_day, "%Y%m%d")
+        if self.today != actual_day:
+            self.redis_history_value(self.today)
+
         yesterday = common.get_last_date(cday)
         yesterday_mongo = common.format_date(yesterday, "%Y%m%d")
         yesterday = common.format_date(yesterday, "%Y-%m-%d")
-        # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
-        # del calframe['0']
-        # calframe.columns=['Time']
-        # calList=calframe['Time'].values
-        # calList=list(calList)
-        # yesterday=calList[calList.index(cday)-1]
-        # yesterday_mongo = datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y%m%d")
-        # yesterday=datetime.datetime.strptime(yesterday,'%Y/%m/%d').strftime("%Y-%m-%d")
-
 
         self.yesterday=yesterday
         ## get info of yesterday
@@ -49,6 +44,32 @@ class top_statistic:
         self.low10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['LD_stocks'].split("_")
         self.dn10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['DT_stocks'].split("_")
         self.count=0
+
+    #           TICKER_SYMBOL SEC_SHORT_NAME  TRADE_DATE  PRE_CLOSE_PRICE  OPEN_PRICE  \
+    # 0        000001           平安银行  2017-02-27             9.50        9.50
+    #
+    #    HIGHEST_PRICE  LOWEST_PRICE  CLOSE_PRICE  ACT_PRE_CLOSE_PRICE  rate
+    # 0           9.50          9.42         9.43                 9.50 -0.74
+    # 从数据库中读取数据， 更新到redis中
+    def redis_history_value(self, histday):
+        # 读取到所有当天股票的相关值
+        histdate_frame = common.get_mysqlData([], [histday])
+        histdate_frame['rate'] = 100*(histdate_frame['CLOSE_PRICE'] - histdate_frame['ACT_PRE_CLOSE_PRICE'])/histdate_frame['ACT_PRE_CLOSE_PRICE']
+        histdate_frame['rate'] = histdate_frame['rate'].round(2)
+
+        # 清空redis数据
+        self.redis.flushdb()
+
+        # 更新redis的数据
+        for idx in histdate_frame.index.values:
+            close = histdate_frame.loc[idx, 'CLOSE_PRICE']
+            preclose = histdate_frame.loc[idx, 'ACT_PRE_CLOSE_PRICE']
+            high = histdate_frame.loc[idx, 'HIGHEST_PRICE']
+            low = histdate_frame.loc[idx, 'LOWEST_PRICE']
+            rate = histdate_frame.loc[idx, 'rate']
+            key_name = histdate_frame.loc[idx, 'TICKER_SYMBOL']
+            self.redis.set(key_name, [close, preclose, high, low, rate])
+        print "update history price in redis finished, day:%s" %histday
 
     def get_statistics(self,stock_list,timestamp):
         stock_lists=[]
@@ -128,7 +149,7 @@ class top_statistic:
                 Sframe.loc[self.count,'hmean']=1000
 
             # if 1:
-            if (thour > 15) or (thour == 15 and tmin > 10):
+            if (thour > 18) or (thour == 18 and tmin > 10) or self.force_dump == 1:
                 while not self.mongodb.stock.ZDT_by_date.find({"date":self.today}):
                     time.sleep(60)
 
@@ -173,8 +194,8 @@ class top_statistic:
             ttime=time.localtime()
             thour=ttime.tm_hour
             tmin=ttime.tm_min
-            if (thour > 18) or (thour == 18 and tmin > 5):
-            # if 1:
+            # if (thour > 17) or (thour == 17 and tmin > 5):
+            if (thour > 18) or (thour == 18 and tmin > 5) or self.force_dump == 1:
                 Aframe = self.get_csv(detailinfos, png_enable = 1)
                 Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
                 break
@@ -189,7 +210,8 @@ class top_statistic:
 
         # 生成 "是否最强.bat"， 用来复盘后生成html文件
         with open(os.path.join(constant_dir, u"1是否最强.bat"), 'wb') as fHandler:
-            fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
+            fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\intelligent_eye.py")
+            # fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
 
 
     def get_csv(self, detailinfos, png_enable = 0):
@@ -225,10 +247,13 @@ class top_statistic:
 
                 # 先获得对于的group以及stocklist
                 [group, group_stocklist] = common.find_concept(stockid, self.today)
+                # print group_stocklist
                 if len(group_stocklist) > 8:  # 太长了显示出来也没用
                     anotation = "too long"
                 else:
-                    anotation = ",".join([common.QueryStockMap(x)[0] for x in group_stocklist])
+                    anotation_list = [common.QueryStockMap(x)[0] for x in group_stocklist]
+                    anotation_list = [x for x in anotation_list if x != 0]
+                    anotation = ",".join(anotation_list)
 
                 # 将概念和相关股票打印进去
                 Aframe.loc[i, 'group'] = group
@@ -242,108 +267,8 @@ class top_statistic:
                 if png_enable == 1:
                     generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
                 i += 1
-
-        # for hdStock in hdStocks:
-        #     Aframe.loc[i,'stock']=hdStock
-        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = hdStock)[0]
-        #     Aframe.loc[i,'reason']='0'
-        #     Aframe.loc[i,'type']='HD'
-        #     Aframe.loc[i,'desc']='record'
-        #     Aframe.loc[i, 'group'] = ''
-        #     Aframe.loc[i, 'anotation'] = ''
-        #     Aframe.loc[i, 'reason2'] = ''
-        #     Aframe.loc[i,'news'] = common.get_latest_news(hdStock)
-        #     if png_enable == 1:
-        #         generate_fp_pic(hdStock, constant_dir, Aframe.loc[i,'news'], self.today)
-        #     i+=1
-        #
-        # for dtStock in dtStocks:
-        #     Aframe.loc[i,'stock']=dtStock
-        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = dtStock)[0]
-        #     Aframe.loc[i,'reason']='0'
-        #     Aframe.loc[i,'type']='DT'
-        #     Aframe.loc[i,'desc']='record'
-        #     Aframe.loc[i, 'group'] = ''
-        #     Aframe.loc[i, 'anotation'] = ''
-        #     Aframe.loc[i, 'reason2'] = ''
-        #     Aframe.loc[i,'news'] = common.get_latest_news(dtStock)
-        #     if png_enable == 1:
-        #         generate_fp_pic(dtStock, constant_dir, Aframe.loc[i,'news'], self.today)
-        #     i+=1
-        #
-        # for meatStock in meatStocks:
-        #     Aframe.loc[i,'stock']=meatStock
-        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = meatStock)[0]
-        #     Aframe.loc[i,'reason']='0'
-        #     Aframe.loc[i,'type']='meat'
-        #     Aframe.loc[i,'desc']='record'
-        #     Aframe.loc[i, 'group'] = ''
-        #     Aframe.loc[i, 'anotation'] = ''
-        #     Aframe.loc[i, 'reason2'] = ''
-        #     Aframe.loc[i,'news'] = common.get_latest_news(meatStock)
-        #     if png_enable == 1:
-        #         generate_fp_pic(meatStock, constant_dir, Aframe.loc[i,'news'], self.today)
-        #     i+=1
-        #
-        # for holeStock in holeStocks:
-        #     Aframe.loc[i,'stock']=holeStock
-        #     Aframe.loc[i,'name'] = common.QueryStockMap(id = holeStock)[0]
-        #     Aframe.loc[i,'reason']='0'
-        #     Aframe.loc[i,'type']='hole'
-        #     Aframe.loc[i,'desc']='record'
-        #     Aframe.loc[i, 'group'] = ''
-        #     Aframe.loc[i, 'anotation'] = ''
-        #     Aframe.loc[i, 'reason2'] = ''
-        #     Aframe.loc[i,'news'] = common.get_latest_news(holeStock)
-        #     if png_enable == 1:
-        #         generate_fp_pic(holeStock, constant_dir, Aframe.loc[i,'news'], self.today)
-        #     i+=1
         return Aframe
 
-# def generate_fp_pic(stockid, dir, news):
-#     if int(stockid) == 0:
-#         return
-#     fig = plt.figure()
-#
-#     # 画个股分时图
-#     ax1 = fig.add_subplot(221)
-#     endDate = datetime.datetime.now().strftime("%Y%m%d")
-#     # endDate = "20161017"
-#     yesterday = common.get_lastN_date(endDate, 1)
-#
-#     # 画出分时图，并标注涨幅
-#     stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
-#     yeframe = common.get_mysqlData([stockid],[yesterday])
-#     if len(yeframe) > 0:
-#         pre_close = yeframe.loc[0,'CLOSE_PRICE']
-#     else:
-#         pre_close = 0
-#     LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close = pre_close)
-#
-#     [sname, sid] = common.QueryStockMap(id = stockid)
-#     ax1.set_title(sname, fontproperties=myfont)
-#     ax1.grid(True)
-#
-#     # 画上证分时图， 不标注涨幅
-#     ax2 = fig.add_subplot(223)
-#     sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
-#     LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1)
-#     ax2.grid(True)
-#
-#     ax3 = fig.add_subplot(222)
-#     ax4 = fig.add_subplot(224)
-#     # 将新闻画在后面
-#     texts = news.split("\n")
-#     tn = len(texts)
-#
-#     n1 = int(tn/2)
-#     texts1 = texts[:n1]
-#
-#     texts2 = texts[n1:]
-#     n2 = tn - n1
-#     common.plot_text(ax3, texts1, fontsize=8)
-#     common.plot_text(ax4, texts2, fontsize=8)
-#     plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
 
 def generate_fp_pic(stockid, dir, news, endDate):
     if len(str(stockid)) <3:
@@ -401,5 +326,15 @@ def generate_fp_pic(stockid, dir, news, endDate):
     plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
 
 if __name__=="__main__":
+    # # 补历史
+    # dateStart = '20170301'
+    # dateEnd = '20170301'
+    # dateDicts = common.get_mongoDicts(dateStart=dateStart,dateEnd=dateEnd)
+    # for dateDict in dateDicts:
+    #     cdate=dateDict['date']
+    #     print cdate
+    #     z=top_statistic(day = cdate, force_dump = 1)
+    #     z.run()
+
     z=top_statistic()
     z.run()

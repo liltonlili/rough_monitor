@@ -46,5 +46,11 @@ import sys
 # #save img
 # wc.to_file(path.join(d, "cloudimg.png"))
 import common
+import requests as rs
 
-print common.find_concept("000017", "20161223")[0]
+dday = "20170227"
+histdate_frame = common.get_mysqlData([], [dday])
+histdate_frame['rate'] = 100*(histdate_frame['CLOSE_PRICE'] - histdate_frame['ACT_PRE_CLOSE_PRICE'])/histdate_frame['ACT_PRE_CLOSE_PRICE']
+histdate_frame['rate'] = histdate_frame['rate'].round(2)
+# print common.find_concept("000017", "20161223")[0]
+print histdate_frame.head(5)

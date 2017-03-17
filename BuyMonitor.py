@@ -17,12 +17,13 @@ class BuyMonitor:
         self.forcusList = set()
         self.nearNewHigh = set()
         self.stockList = set()
+        self.fpDict = {}
         self.mongodb = pymongo.MongoClient(mongoUrl)
         self.today = datetime.date.today().strftime("%Y%m%d")
         # self.today = "20160520"
         self.yestoday = common.get_last_date(self.today)
         self.yestoday = common.format_date(self.yestoday,"%Y%m%d")
-        print self.yestoday
+        # print self.yestoday
         self.updateNewHighlist()
         while(True):
             ttime=time.localtime()
@@ -34,9 +35,31 @@ class BuyMonitor:
 
         self.updatefreshlist()      # 次新股
         self.updateForcusList()     # 关注股
+        self.updateFpList()         # 复牌股
 
     def run(self):
         self.monitor()
+
+    # 停牌时间超过20天，暂且认为合理为大盘+- 5%
+    # 如果大盘为+，则小于5%，则预警
+    # 如果大盘为-，则低于-5%，则预警
+    def updateFpList(self):
+        last_day = common.get_lastN_date(self.today, 1)
+        last2_day = common.get_lastN_date(self.today, 2)
+        day_list = [self.today, last_day, last2_day]
+        day_list = [common.format_date(x, "%Y-%m-%d") for x in day_list]    # 关注的复牌日
+        results = self.mongodb.stock.FP.find({"fp_time":{"$in":day_list}, "dp_ratio":{"$exists":True}})
+        for result in results:
+            if result['delta_days'] < 20:
+                continue
+            if result['dp_ratio'] >= 0:
+                direction = "+"
+            else:
+                direction = "-"
+            self.fpDict[result['stcid']] =[direction, result['target_price']]
+        stcid_string = "_".join(self.fpDict.keys())
+        # 更新mongo数据库
+        self.mongodb.stock.ZDT_by_date.update({"date":self.today}, {"$set":{"fp_list":stcid_string}}, True, True)
 
     # 昨日的自然涨停股
     def updateForcusList(self):
@@ -122,8 +145,25 @@ class BuyMonitor:
 
             # ##强势股（次新和连板）8.8个点提示
             self.HandleHigher()
+
+            # 复牌股提示
+            self.HandleFP()
+
             if (thour > 15) or (thour == 15 and tmin > 1):
                 break
+
+    def HandleFP(self):
+        for stcid in self.fpDict.keys():
+            stocklist = [stcid]
+            number = self.fpDict[stcid][1]
+            direction = self.fpDict[stcid][0]
+            if direction == '-':
+                operate = 'l'
+                message = u'复牌超跌'
+            else:
+                operate = 'l'
+                message = u'复牌补涨'
+            common.WindowShow(stocklist, operate, number, message)
 
     def HandleHigher(self):
         result = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
@@ -140,7 +180,7 @@ class BuyMonitor:
         if "HigherExclude" in result.keys():
             excludelist = result['HigherExclude'].split("_")
         stocklist = [x for x in stocklist if x not in excludelist]
-        self.HandleWindow(list(stocklist),u"强势股8.8个点以上提示","gt",8.8, "HigherExclude")
+        self.HandleWindow(list(stocklist), u"强势股8.8个点以上提示","gt",8.8, "HigherExclude")
 
     def HandleWindow(self, stocklist, message, operate, number, keys=None):
         if len(stocklist) < 1 or (len(stocklist) == 1 & (stocklist[0]==u'')):

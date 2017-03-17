@@ -44,7 +44,7 @@ class rtMonitor:
 
     def get_summarize_day(self):
         self.cdate =datetime.date.today().strftime("%Y-%m-%d")
-        # self.cdate = "2016-12-16"
+        # self.cdate = "2017-02-17"
         self.ttframe = self.get_price_frame()
         self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
         self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)

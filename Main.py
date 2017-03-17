@@ -276,11 +276,11 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    # MP.update_ZDT_stocksNum_ALL(dateEq="20161021")
+    # MP.update_ZDT_stocksNum_ALL(dateEq="20170223")
 
-    MP.update_ZDT_stocksNum_ALL(dateStart = '20161216', dateEnd = '20161221')
-    # MP.update_freshStocks(dateEq="20161021")
-    MP.update_freshStocks(dateStart = '20161216', dateEnd = '20161221')
+    MP.update_ZDT_stocksNum_ALL(dateStart = '20170103', dateEnd = '20170308')
+    # MP.update_freshStocks(dateEq="20170221")
+    MP.update_freshStocks(dateStart = '20170103', dateEnd = '20170308')
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -288,15 +288,15 @@ if __name__ == "__main__":
     # mongodb=pymongo.MongoClient(mongo_url)
     # for date in calframe.Time.values:
     #     date = common.format_date(date,"%Y%m%d")
-    #     if date < "20100101" or date > "20160505":
+    #     if date < "20170103" or date > "20170213":
     #         continue
     #     queryResult = mongodb.stock.ZDT_by_date.find_one({"date":date})
     #     if queryResult is None:
     #         MP.update_ZDT_stocksNum([],[date])
-            # print date
+    #         print date
 
-    # MP.update_ZDT_contsNum(dateEq="20161021")
-    # MP.update_ZDT_yesterday(dateEq="20161021")
+    # MP.update_ZDT_contsNum(dateEq="20170223")
+    # MP.update_ZDT_yesterday(dateEq="20170223")
 
-    MP.update_ZDT_contsNum(dateStart = '20161216', dateEnd = '20161221')
-    MP.update_ZDT_yesterday(dateStart = '20161216', dateEnd = '20161221')
+    MP.update_ZDT_contsNum(dateStart = '20170103', dateEnd = '20170308')
+    MP.update_ZDT_yesterday(dateStart = '20170103', dateEnd = '20170308')
