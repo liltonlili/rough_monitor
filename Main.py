@@ -276,11 +276,21 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    # MP.update_ZDT_stocksNum_ALL(dateEq="20170223")
+    equal_date = "20170704"
+    date_start = "20170510"
+    date_end = "20170523"
+    direction = 1
+    if direction == 1:
+        MP.update_ZDT_stocksNum_ALL(dateEq=equal_date)
+        MP.update_freshStocks(dateEq=equal_date)
+        MP.update_ZDT_contsNum(dateEq=equal_date)
+        MP.update_ZDT_yesterday(dateEq=equal_date)
+    else:
+        MP.update_ZDT_stocksNum_ALL(dateStart=date_start, dateEnd=date_end)
+        MP.update_freshStocks(dateStart=date_start, dateEnd=date_end)
+        MP.update_ZDT_contsNum(dateStart=date_start, dateEnd=date_end)
+        MP.update_ZDT_yesterday(dateStart=date_start, dateEnd=date_end)
 
-    MP.update_ZDT_stocksNum_ALL(dateStart = '20170103', dateEnd = '20170308')
-    # MP.update_freshStocks(dateEq="20170221")
-    MP.update_freshStocks(dateStart = '20170103', dateEnd = '20170308')
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']
     # calframe.columns=['Time']
@@ -295,8 +305,5 @@ if __name__ == "__main__":
     #         MP.update_ZDT_stocksNum([],[date])
     #         print date
 
-    # MP.update_ZDT_contsNum(dateEq="20170223")
-    # MP.update_ZDT_yesterday(dateEq="20170223")
 
-    MP.update_ZDT_contsNum(dateStart = '20170103', dateEnd = '20170308')
-    MP.update_ZDT_yesterday(dateStart = '20170103', dateEnd = '20170308')
+

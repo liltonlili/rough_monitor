@@ -21,6 +21,7 @@ myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts',
 
 class top_statistic:
     def __init__(self, day = datetime.date.today().strftime("%Y%m%d"), force_dump=0):
+        # day = "20170519"
         cday = common.format_date(day, "%Y/%m/%d")
         self.force_dump = force_dump
         self.today = common.format_date(day, "%Y%m%d")
@@ -87,7 +88,10 @@ class top_statistic:
         up_10=len(tframe[tframe.up10==tframe.close])
         dn_10=len(tframe[tframe.dn10==tframe.close])
         pos=len(tframe[tframe.rate > 0])
-        pos_rate=round(float(pos)/len(tframe),2)
+        if len(tframe) != 0:
+            pos_rate=round(float(pos)/len(tframe),2)
+        else:
+            pos_rate = 0
         mean=tframe['rate'].mean()
         std_rate=round(tframe['rate'].std(),2)
         pos_rate=round(pos_rate,2)
@@ -161,6 +165,8 @@ class top_statistic:
                                                                                        "pre_htpos":Sframe.loc[self.count,'hposr']}},True,True)
                 del Sframe['dmean']
                 print Sframe            ##实时显示当前情况
+                common.resee_info_gjsh()    # 收集复盘信息
+                # 这一步需要从数据库中读取概念信息
                 self.genCsv()
                 self.calCons()
                 break
@@ -179,7 +185,12 @@ class top_statistic:
         ttime=time.localtime()
         thour=ttime.tm_hour
         tmin=ttime.tm_min
-        detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
+        while 1:
+            detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
+            if u'actulZtStocks' in detailinfos.keys():
+                break
+            else:
+                time.sleep(60)
         if (thour < 18):
             ##生成daydayup.csv,用来复盘
             Aframe = self.get_csv(detailinfos, png_enable = 0)
@@ -208,8 +219,8 @@ class top_statistic:
         constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
         Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
 
-        # 生成 "是否最强.bat"， 用来复盘后生成html文件
-        with open(os.path.join(constant_dir, u"1是否最强.bat"), 'wb') as fHandler:
+        # 生成 "bat"， 用来复盘后生成html文件
+        with open(os.path.join(constant_dir, u"1坚持自己.bat"), 'wb') as fHandler:
             fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\intelligent_eye.py")
             # fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
 
@@ -221,6 +232,18 @@ class top_statistic:
         holeStocks = detailinfos['holeList'].split("_")
         hdStocks = detailinfos['HD_stocks'].split("_")
 
+        # 拿到数据库中股金神话的复盘信息
+        # 由于股金神话暂停了，所以暂时不再拿复盘信息
+        self.gjsh_mirror_info = {}
+        # gjsh_mirror_info = self.mongodb.stock.mirror_info.find({"date":self.today, "source":"GJSH_B"})
+        # if gjsh_mirror_info.count() > 0:
+        #     self.gjsh_mirror_info = gjsh_mirror_info[0]
+        # else:
+        #     self.gjsh_mirror_info = {}
+
+        # 拿到金融界上的news和复盘信息, dict为：{stockid:[concept, reason]}
+        stock_news_dict = common.get_jrj_news()
+        xgb_stock_news_dict = common.get_xgb_news()
         i = 0
         Aframe=DataFrame()
         c_date = self.today
@@ -245,6 +268,7 @@ class top_statistic:
                 Aframe.loc[i,'type']=stock_type
                 Aframe.loc[i,'desc']='record'
 
+
                 # 先获得对于的group以及stocklist
                 [group, group_stocklist] = common.find_concept(stockid, self.today)
                 # print group_stocklist
@@ -255,6 +279,15 @@ class top_statistic:
                     anotation_list = [x for x in anotation_list if x != 0]
                     anotation = ",".join(anotation_list)
 
+                # 从L1, L2中得到的group为空，且金融界有相关的group，则用金融界的记录
+                if len(group_stocklist) < 1 and stockid in stock_news_dict.keys():
+                    group = stock_news_dict[stockid][0]    # 说明数据库还没记录概念，但金融界网站已经记录了
+
+                # 如果还是没有，则选用选股宝的信息
+                if len(group)<1 and stockid in xgb_stock_news_dict.keys():
+                    group = xgb_stock_news_dict[stockid][0].split("|")[0].replace("+", "_")
+
+
                 # 将概念和相关股票打印进去
                 Aframe.loc[i, 'group'] = group
                 inL1 = common.exist_in_cache(stockid, group, 1)
@@ -263,7 +296,28 @@ class top_statistic:
                 Aframe.loc[i, 'inL2'] = inL2
                 Aframe.loc[i, 'anotation'] = anotation
                 Aframe.loc[i, 'reason2'] = ''
-                Aframe.loc[i, 'news'] = common.get_latest_news(stockid)
+                news = common.get_latest_news(stockid)
+
+
+                # 将选股宝的信息整合
+                if stockid in xgb_stock_news_dict.keys():
+                    Aframe.loc[i, 'source_xgb'] = xgb_stock_news_dict[stockid][0]
+                    news = "%s\n%s" % (xgb_stock_news_dict[stockid][0], news)
+
+                # 将股金神话的信息整合
+                if stockid in self.gjsh_mirror_info.keys():
+                    Aframe.loc[i, 'source_gjsh'] = self.gjsh_mirror_info[stockid]['reason']
+                    big_concept = ""
+                    if 'big_concept' in self.gjsh_mirror_info[stockid].keys():
+                        big_concept = self.gjsh_mirror_info[stockid]['big_concept']
+                    news = "%s\n%s\n%s" % (big_concept, self.gjsh_mirror_info[stockid]['reason'], news)
+
+
+                # 将金融界的信息整合
+                if stockid in stock_news_dict.keys():
+                    news = "%s\n%s" % (stock_news_dict[stockid][1], news)
+
+                Aframe.loc[i, 'news'] = news
                 if png_enable == 1:
                     generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
                 i += 1
@@ -327,8 +381,8 @@ def generate_fp_pic(stockid, dir, news, endDate):
 
 if __name__=="__main__":
     # # 补历史
-    # dateStart = '20170301'
-    # dateEnd = '20170301'
+    # dateStart = '20170517'
+    # dateEnd = '20170517'
     # dateDicts = common.get_mongoDicts(dateStart=dateStart,dateEnd=dateEnd)
     # for dateDict in dateDicts:
     #     cdate=dateDict['date']
@@ -336,5 +390,6 @@ if __name__=="__main__":
     #     z=top_statistic(day = cdate, force_dump = 1)
     #     z.run()
 
-    z=top_statistic()
+    # z=top_statistic(day=datetime.date.today().strftime("%Y%m%d"), force_dump=1)
+    z=top_statistic(day="20170721", force_dump=1)
     z.run()

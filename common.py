@@ -17,6 +17,8 @@ import json
 import matplotlib as mpl
 from matplotlib import *
 from matplotlib.font_manager import FontProperties
+from lxml import etree
+from selenium import webdriver
 sys.path.append("D:/projects/report_download/src/lib")
 import http_downloader
 
@@ -31,13 +33,14 @@ backsee_csv = u'D:/Money/modeResee/复盘'
 
 
 def connectdb():
-    # mydbs='a'
+    mydbs='a'
     # mydb='b'
     # dydb='c'
-    mydbs=mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
+    # mydbs=mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
     mydb = mysqldb({'host': '10.21.232.43', 'user': 'app_gaea_ro', 'pw': 'Welcome20150416', 'db': 'MarketDataL1', 'port': 5029})  ##分笔，分钟级
     dydb  = mysqldb({'host': 'db-datayesdb-ro.wmcloud.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdbp', 'port': 3313})
-    cardb = mysqldb({'host': 'db-news.wmcloud-stg.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'news', 'port': 3310})
+    # cardb = mysqldb({'host': 'db-news.wmcloud-stg.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'news', 'port': 3310})
+    cardb = 'A'
     souhudbs = mysqldb({'host': 'db-datayesdb-ro.wmcloud.com', 'user': 'app_gaea_ro', 'pw': 'EQw6WquhnCKPp8Li', 'db': 'datayesdb', 'port': 3313})
     # souhudbi = mysqldb({'host': 'db-bigdata.wmcloud-qa.com', 'user': 'app_bigdata_ro', 'pw': 'Welcome_20141217', 'db': 'bigdata', 'port': 3312})
     souhudbi = mydbs
@@ -55,7 +58,6 @@ class mysqldata:
         return pd.read_sql(sqlquery,con=self.mydbs.db)
 
     def dydb_query(self,sqlquery):
-        self.dydb.db.ping(True)
         self.dydb.db.cursor()
         return pd.read_sql(sqlquery,con=self.dydb.db)
 
@@ -217,6 +219,7 @@ def get_mysqlData(stock_list,date_list):
     else:
         query = 'SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_PRICE, OPEN_PRICE, HIGHEST_PRICE, LOWEST_PRICE, CLOSE_PRICE, ACT_PRE_CLOSE_PRICE  ' \
                 'from %s where TRADE_DATE in %s and TICKER_SYMBOL < "700000" '%(table,date_list)
+    # print query
     dataFrame = mysqldb.dydb_query(query)
     return dataFrame
 
@@ -757,9 +760,9 @@ def get_realtime_news(stock):
     }
     # datas = "code=002436"
     url = "http://www.yuncaijing.com/stock/get_lines/yapi/ajax.html"
-    # proxies = {'http':'http://10.20.205.162:1080'}
-    # r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
-    r = requests.post(url = url, headers=headers, data=datas)
+    proxies = {'http':'http://10.20.205.162:1080'}
+    r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
+    # r = requests.post(url = url, headers=headers, data=datas)
     while r.status_code != 200 or count < 0:
         r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
@@ -788,7 +791,9 @@ def get_hist_news(stock):
         "code":stock
     }
     url = "http://www.yuncaijing.com/stock/get_klines/yapi/ajax.html"
-    r = requests.post(url = url, headers = headers, data=datas)
+    proxies = {'http':'http://10.20.205.162:1080'}
+    r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
+    # r = requests.post(url = url, headers = headers, data=datas)
     while r.status_code != 200 or count < 0:
         r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
@@ -819,6 +824,61 @@ def parse_news(jsonContent):
             news += "%s, %s\n" % (dictContent['day'].replace("<kbd>","").replace("<\\/kbd>",""), dictContent['title'])
             count -= 1
     return news
+
+
+# 得到金融界上面的复盘信息，比云财经的要精确
+def get_jrj_news():
+    bs = webdriver.Ie()
+    bs.get("http://stock.jrj.com.cn/ztbjm/ztbjm.shtml")
+    time.sleep(5)
+    news_dict = {}
+    r = etree.HTML(bs.page_source)
+    bs.close()
+    zt_datas = r.xpath('//div[@id="zt_data"]//div[@class="detailBox"]')
+    for zt_data in zt_datas:
+        try:
+            reason = zt_data.xpath('./p[2]/text()')[0]
+            stockid = zt_data.xpath('./div[2]/div[2]/div/table/tbody/tr[3]/@name')[0]
+            print stockid
+            if len(stockid.replace(" ", "")) < 3:
+                continue
+            concept = zt_data.xpath('./div[2]/div[2]/div/table/tbody/tr[1]/th/span/@name')[0]
+            stockname = zt_data.xpath('./div[2]/div[2]/div/table/tbody/tr[3]/td[1]/a/text()')[0]
+            concept = concept.replace(stockname, u'')
+            news_dict[stockid] = [concept, reason]
+        except:
+            pass
+    return news_dict
+
+
+# 得到选股宝上面的复盘信息
+def get_xgb_news():
+    bs = webdriver.Ie()
+    news_dict = {}
+
+    for url in ['http://ban.xuangubao.cn/#/pool/1', 'http://ban.xuangubao.cn/#/pool/2']:
+        bs.get(url)
+        time.sleep(5)
+        r = etree.HTML(bs.page_source)
+
+
+        # 解析数据
+        zt_datas = r.xpath('//div[@class="body___33tuy"]/div')
+        for zt_data in zt_datas:
+            try:
+                reason = zt_data.xpath('./div[3]/div/p/text()')[0]
+                stockid = zt_data.xpath('./div[2]/div/p[2]/text()')[0].replace(".SZ","").replace(".SS","")
+                news_dict[stockid] = [reason, reason]
+            except:
+                pass
+    bs.close()
+    return news_dict
+
+
+
+
+
+
 
 def get_latest_news(stock):
     stock = '0'*(6-len(stock))+stock
@@ -852,9 +912,20 @@ def get_price_from_redis(stock_lists, rediser):
         timestamp=time.strftime("%X", time.localtime())
         count = 0
         # print timestamp
+        redis_stocks = rediser.keys()
         for stockid in stock_lists:
             # print stockid
-            redis_value = eval(rediser.get(stockid))
+            # if str(stockid) == '601200':
+            #     continue
+            if stockid != stockid:
+                continue
+            if stockid not in redis_stocks:
+                continue
+            value_str = rediser.get(stockid)
+            if 'nan' in value_str:
+                # print stockid
+                continue
+            redis_value = eval(value_str)
             if len(redis_value) != 5:
                 continue
             [close, preclose, high, low, rate] = redis_value
@@ -968,7 +1039,7 @@ def get_minly_frame(stockid, endDate, id_type =1):
             # table = "equity_pricefenbi%s"%tableTime
             table = "MarketDataTDB.equity_pricemin%s"%tableTime
             dtsql = "SELECT * from %s where ticker = %s and datadate = %s"%(table,stockid,endDate)
-            print dtsql
+            # print dtsql
             dtv = get_mydb_sqlquery(dtsql)
             if len(dtv) == 0:
                 table = "MarketDataL1.equity_pricemin%s"%tableTime
@@ -1138,3 +1209,160 @@ def exist_in_cache(stockid, concept, cache = 1):
             return 0
         else:
             return 1
+
+
+# 抽取股金神话中的复盘数据
+def extract_gjsh_records(contents, tdate):
+    contents = etree.HTML(contents)
+    lines = contents.xpath('//div[@class="detail"]/p/text()')
+    match_str = r'\d{6}'
+    extract_infos = {"source":"GJSH", "date":tdate}
+    for eline in lines:
+        # print eline
+        if re.search(match_str, eline):
+            # print "hit"
+            eline = eline.replace("\t", " ")
+            line_infos = eline.split(" ")
+            line_infos = [x for x in line_infos if len(x)>0]
+            stockid = line_infos[0]
+            stockname = line_infos[1]
+            for idx in range(2, len(line_infos)):
+                if u':' in line_infos[idx]:
+                    # print 'hit2'
+                    zt_time = line_infos[idx]
+                    zt_reason = "_".join(line_infos[idx+1:])
+                    extract_infos[stockid] = {"name":stockname, "reason":zt_reason, "zttime":zt_time, "type":"ZT"}
+                    break
+    print "Get ZT INFO from GJSH: %s in total" %(len(extract_infos) - 1)
+    return extract_infos
+
+
+# 抽取股金神话中的复盘数据
+# 增加了大概念，即 xxxx概念：
+def extract_gjsh_records_big_concept(contents, tdate):
+    contents = etree.HTML(contents)
+    lines = contents.xpath('//div[@class="detail"]/p/text()')
+    if len(lines) == 0:
+        lines = contents.xpath('//div[@class="detail"]/text()')
+    match_str = r'\d{6}'
+    extract_infos = {"source":"GJSH_B", "date":tdate}
+    big_concept = ""
+    last_line = ""
+    last_valid_status = False
+    first_type_concept = False
+    for eline in lines:
+        eline = eline.strip()
+        eline = eline.replace(".SH", "").replace(".SZ", "").replace(".sh", "").replace(".sz", "")
+        # 第一种含有big_concept的类型，即包含：
+        if u'：' in eline:
+            line_infos = eline.split(u'：')
+            if line_infos[1].strip() == u'':
+                big_concept = line_infos[0]
+                first_type_concept = True # 标志着都是通过“：”来显示big concept
+                # print big_concept
+
+        try:
+            if re.search(match_str, eline):
+                eline = eline.replace("\t", " ").replace(u"\xa0", u' ')
+                line_infos = eline.split(" ")
+                line_infos = [x for x in line_infos if len(x)>0]
+                stockid = line_infos[0]
+                stockname = line_infos[1]
+                for idx in range(2, len(line_infos)):
+                    if u':' in line_infos[idx]:
+
+                        # 第二种含有big_concept的类型，即该行符合要求，如果上一行不符合要求，则上一行可能是（再排除掉点评之类的）
+                        # 条件一： 上一行不是300043 xxx 之类的
+                        # 条件二： 上一行不为空
+                        # 条件三： 不存在类型1的big concept
+                        if not last_valid_status and len(last_line) > 1 and not first_type_concept and u'点评' not in last_line:
+                            big_concept = last_line.strip()
+                        zt_time = line_infos[idx]
+                        zt_reason = "_".join(line_infos[idx+1:])
+                        extract_infos[stockid] = {"name":stockname, "reason":zt_reason, "zttime":zt_time, "type":"ZT", "big_concept":big_concept}
+                        last_valid_status = True
+                        if len(eline) > 0:
+                            last_line = eline
+                        break
+            else:
+                last_valid_status = False
+                if len(eline.strip()) > 0:
+                    last_line = eline
+        except:
+            pass
+    print "Get ZT INFO from GJSH: %s in total" %(len(extract_infos) - 1)
+    return extract_infos
+
+
+# 爬取股金神话的复盘信息
+# 存储到FP_INFO_DAILY
+# {"600036":{'name':名字, 'reason':原因, 'time':涨停时间},"":{}, xxxxxx,  "source":"GJSH"}
+def resee_info_gjsh(tdate=datetime.datetime.today().strftime("%Y%m%d")):
+    tdate = format_date(tdate, "%Y%m%d")
+    tyear = tdate[:4]
+    tmonth = str(int(tdate[4:6]))
+    tday = str(int(tdate[6:]))
+
+    general_headers = {
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Encoding":"gzip, deflate, sdch",
+        "Accept-Language":"zh-CN,zh;q=0.8",
+        "Connection":"keep-alive",
+        "Host":"www.xueqiu.com",
+        "Upgrade-Insecure-Requests":"1",
+        "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
+        }
+
+    general_headers1 = {
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Encoding":"gzip, deflate, br",
+        "Accept-Language":"zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
+        "Connection":"keep-alive",
+        "Host":"xueqiu.com",
+        "Upgrade-Insecure-Requests":"1",
+        "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
+    }
+
+    main_page = "https://www.xueqiu.com"
+    s = requests.Session()
+    s.get(main_page, headers=general_headers)
+
+
+    # 查看股金神话的页面
+    page1 = "https://xueqiu.com/statuses/search.json?q=%E6%B6%A8%E5%81%9C%E6%9D%BF%E5%A4%8D%E7%9B%98&page=1&uid=4172966218&sort=time"
+
+    r = s.get(page1, headers=general_headers1)
+    if r.status_code != 200:
+        print "Error: 访问股金神话主页失败!"
+
+    # content = r.content.decode("utf-8")
+    content = json.loads(r.content)
+    user_id = 0
+    file_id = 0
+    for infos in content['list']:
+        text = infos['title']
+        if tyear in text and tmonth in text and tday in text:
+            # print text
+            user_id = infos['user_id']
+            file_id = infos['id']
+            break
+    next_url = "https://xueqiu.com/%s/%s" % (user_id, file_id)
+
+    global mongodb
+    status = False
+    # 开始获取信息
+    t_count = 5
+    while t_count > 0:
+        try:
+            r = s.get(next_url, headers = general_headers1)
+            if r.status_code != 200:
+                raise Exception("访问股金神话具体页面失败")
+            record_infos = extract_gjsh_records_big_concept(r.content.decode("utf-8"), tdate)
+            # 更新到mongo中
+            mongodb.stock.mirror_info.update({"source":"GJSH_B", "date":tdate}, {"$set":record_infos}, upsert=True)
+            status = True
+            break
+        except:
+            t_count -= 1
+            time.sleep(3)
+    return status

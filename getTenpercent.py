@@ -83,6 +83,11 @@ class rtMonitor:
         if yesResults.has_key("freshStocks"):
             freshStocks = yesResults['freshStocks'].split("_")
 
+        yesterdayNewAddStocks = []
+        if yesResults.has_key("Add_newStocks"):
+            yesterdayNewAddStocks = yesResults['Add_newStocks'].keys()
+
+
         ## 新股加入到mongo中，每天刷新一次
         Collect_NewStocks.fresh_newStockWebsite()
         todResults = self.mongodb.stock.ZDT_by_date.find_one({"date":dicts['date']})
@@ -96,7 +101,9 @@ class rtMonitor:
 
         ## 连续涨停的次新股
         freshStocks = [x for x in freshStocks if x in dicts['ZT_stocks']]
+        # ZT_stocks可能不包含今日的股票（因为从tushare拿股票代码，不一定包括今天和昨天的新股， 可能还不包括前天的股票list）
         freshStocks.extend(newAddStocks)
+        freshStocks.extend(yesterdayNewAddStocks)
         dicts['freshStocks'] = "_".join(list(set(freshStocks)))
 
         ## 开板次新股

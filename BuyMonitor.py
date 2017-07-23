@@ -20,7 +20,7 @@ class BuyMonitor:
         self.fpDict = {}
         self.mongodb = pymongo.MongoClient(mongoUrl)
         self.today = datetime.date.today().strftime("%Y%m%d")
-        # self.today = "20160520"
+        # self.today = "20170519"
         self.yestoday = common.get_last_date(self.today)
         self.yestoday = common.format_date(self.yestoday,"%Y%m%d")
         # print self.yestoday
