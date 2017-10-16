@@ -165,7 +165,7 @@ class top_statistic:
                                                                                        "pre_htpos":Sframe.loc[self.count,'hposr']}},True,True)
                 del Sframe['dmean']
                 print Sframe            ##实时显示当前情况
-                common.resee_info_gjsh()    # 收集复盘信息
+                # common.resee_info_gjsh()    # 收集复盘信息
                 # 这一步需要从数据库中读取概念信息
                 self.genCsv()
                 self.calCons()
@@ -220,7 +220,7 @@ class top_statistic:
         Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
 
         # 生成 "bat"， 用来复盘后生成html文件
-        with open(os.path.join(constant_dir, u"1坚持自己.bat"), 'wb') as fHandler:
+        with open(os.path.join(constant_dir, u"part1.bat"), 'wb') as fHandler:
             fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\intelligent_eye.py")
             # fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
 
@@ -319,6 +319,8 @@ class top_statistic:
 
                 Aframe.loc[i, 'news'] = news
                 if png_enable == 1:
+                    # 暂时不管，数据有问题
+                    # pass
                     generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
                 i += 1
         return Aframe
@@ -390,6 +392,6 @@ if __name__=="__main__":
     #     z=top_statistic(day = cdate, force_dump = 1)
     #     z.run()
 
-    # z=top_statistic(day=datetime.date.today().strftime("%Y%m%d"), force_dump=1)
-    z=top_statistic(day="20170721", force_dump=1)
+    z=top_statistic(day=datetime.date.today().strftime("%Y%m%d"), force_dump=1)
+    # z=top_statistic(day="20170728", force_dump=1)
     z.run()

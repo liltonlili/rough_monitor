@@ -276,10 +276,10 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    equal_date = "20170704"
-    date_start = "20170510"
-    date_end = "20170523"
-    direction = 1
+    equal_date = "20170728"
+    date_start = "20170728"
+    date_end = "20170801"
+    direction = 2
     if direction == 1:
         MP.update_ZDT_stocksNum_ALL(dateEq=equal_date)
         MP.update_freshStocks(dateEq=equal_date)

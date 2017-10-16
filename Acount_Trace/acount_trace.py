@@ -13,7 +13,7 @@ import common
 
 
 user = "540800231818"
-passwd = "898989"
+passwd = "898989" #324332
 store_dir = u'D:/Money/lilton_code/Market_Mode/history_zt/Acount_Trace'
 
 

@@ -854,20 +854,36 @@ def get_jrj_news():
 # 得到选股宝上面的复盘信息
 def get_xgb_news():
     bs = webdriver.Ie()
+
+    user = "18221231806"
+    passwd = "Window6210"
+
+    bs.get("http://www.xuangubao.cn/ban/0")
+    # 登录
+    try:
+        bs.find_element_by_xpath('//div[@class="nav-right"]/span')[0].click()
+        elem = bs.find_element_by_xpath('//input[@class="login-item-input login-phone-input"]')[0]
+        elem.send_keys(user)
+
+        elem = bs.find_element_by_xpath('//input[@class="login-item-input login-setpwd-input"]')[0]
+        elem.send_keys(passwd)
+        bs.find_element_by_xpath('//div[@class="login-btn"]').click()
+    except:
+        pass
     news_dict = {}
 
-    for url in ['http://ban.xuangubao.cn/#/pool/1', 'http://ban.xuangubao.cn/#/pool/2']:
+    for url in ['http://www.xuangubao.cn/ban/0', 'http://www.xuangubao.cn/ban/1',
+                'http://www.xuangubao.cn/ban/4']:
         bs.get(url)
         time.sleep(5)
         r = etree.HTML(bs.page_source)
 
-
         # 解析数据
-        zt_datas = r.xpath('//div[@class="body___33tuy"]/div')
+        zt_datas = r.xpath('//tbody[@class="table hit-pool__table-body"]/tr')
         for zt_data in zt_datas:
             try:
-                reason = zt_data.xpath('./div[3]/div/p/text()')[0]
-                stockid = zt_data.xpath('./div[2]/div/p[2]/text()')[0].replace(".SZ","").replace(".SS","")
+                reason = zt_data.xpath('./td[3]/span/span/text()')[0]
+                stockid = zt_data.xpath('./td[2]/@target')[0].replace(".SZ","").replace(".SS","")
                 news_dict[stockid] = [reason, reason]
             except:
                 pass
@@ -1304,13 +1320,13 @@ def resee_info_gjsh(tdate=datetime.datetime.today().strftime("%Y%m%d")):
     tday = str(int(tdate[6:]))
 
     general_headers = {
-        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Encoding":"gzip, deflate, sdch",
-        "Accept-Language":"zh-CN,zh;q=0.8",
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3",
         "Connection":"keep-alive",
         "Host":"www.xueqiu.com",
         "Upgrade-Insecure-Requests":"1",
-        "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
+        "User-Agent":"Mozilla/5.0 (Windows NT 6.1; WOW64; rv:55.0) Gecko/20100101 Firefox/55.0"
         }
 
     general_headers1 = {
@@ -1325,7 +1341,8 @@ def resee_info_gjsh(tdate=datetime.datetime.today().strftime("%Y%m%d")):
 
     main_page = "https://www.xueqiu.com"
     s = requests.Session()
-    s.get(main_page, headers=general_headers)
+    # s.get("https://xueqiu.com")
+    s.get(main_page, headers=general_headers, verify=False)
 
 
     # 查看股金神话的页面
