@@ -7,6 +7,7 @@ import pymongo
 import numpy as np
 import pandas as pd
 import os
+import traceback
 
 # interface #
 ##################################################################################################################
@@ -120,7 +121,8 @@ class MainProc:
                 cdate=dateDict['date']
                 predate=common.get_last_date(cdate)
                 self.oneDate_freshStocks(cdate,predate,mongodb)
-        except Exception,e:
+        except Exception,_:
+            e = traceback.format_exc()
             print "Exception error: %s"%e
 
     def oneDate_freshStocks(self,cdate,predate,mongodb):
@@ -152,6 +154,8 @@ class MainProc:
         # 对于不在todayZTs中的新股，如果是临时停牌或者其它原因，不应该去除
         recheckStocks = [x for x in yesFreshStocks if x not in todayZTs]
         for stocks in recheckStocks:
+            if len(stocks)==0:
+                continue
             recheckFrame = common.get_daily_frame(stocks, cdate, cdate)
             if recheckFrame.loc[0, 'HIGHEST_PRICE'] == 0:
                 print "will add %s to freshlist because abnormal situation" % stocks
@@ -276,20 +280,34 @@ class MainProc:
 
 if __name__ == "__main__":
     MP=MainProc()
-    equal_date = "20170728"
-    date_start = "20170728"
-    date_end = "20170801"
+    equal_date = "20180613"
+    date_start = "20180612"
+    date_end = "20180622"
     direction = 2
+
     if direction == 1:
         MP.update_ZDT_stocksNum_ALL(dateEq=equal_date)
         MP.update_freshStocks(dateEq=equal_date)
         MP.update_ZDT_contsNum(dateEq=equal_date)
         MP.update_ZDT_yesterday(dateEq=equal_date)
     else:
-        MP.update_ZDT_stocksNum_ALL(dateStart=date_start, dateEnd=date_end)
-        MP.update_freshStocks(dateStart=date_start, dateEnd=date_end)
-        MP.update_ZDT_contsNum(dateStart=date_start, dateEnd=date_end)
-        MP.update_ZDT_yesterday(dateStart=date_start, dateEnd=date_end)
+        # mongo中如果是空的，则建立起来记录
+        date_list = common.getDate(date_start, date_end)
+        date_list = [x.replace("/", "") for x in date_list]
+        mongoUrl = "localhost"
+        mongodb = pymongo.MongoClient(mongoUrl)
+        for tdate in date_list:
+            result = mongodb.stock.ZDT_by_date.find({"date":tdate})
+            if result.count() >0:
+                pass
+            else:
+                mongodb.stock.ZDT_by_date.update_many({"date":tdate}, {"$set":{"date":tdate}}, upsert=True)
+                print "created mongo date:%s"%tdate
+
+            MP.update_ZDT_stocksNum_ALL(dateStart=date_start, dateEnd=date_end)
+            MP.update_freshStocks(dateStart=date_start, dateEnd=date_end)
+            MP.update_ZDT_contsNum(dateStart=date_start, dateEnd=date_end)
+            MP.update_ZDT_yesterday(dateStart=date_start, dateEnd=date_end)
 
     # calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
     # del calframe['0']

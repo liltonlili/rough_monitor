@@ -1,5 +1,5 @@
 __author__ = 'li.li'
-## --*-- coding:utf8 --*--
+#coding:utf-8
 import pandas as pd
 from pandas import DataFrame
 import os
@@ -10,6 +10,13 @@ import multiprocessing
 import getTenpercent
 import common
 import redis
+import traceback
+import logging
+logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)s] %(threadName)s Line:%(lineno)d - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S.000',
+                        filename='D:/Money/daily_logs/daily-summry.log',
+                        filemode='a')
 
 frame_list = []
 class rtMonitor:
@@ -61,14 +68,18 @@ if __name__=='__main__':
     z=rtMonitor()
     dir = 'D:\Money\Realtime'
     while(True):
-        z.run()
-        # z.stframe.to_csv(os.path.join(dir,'realtime_summary.csv'))
-        print z.stframe
-        ttime=time.localtime()
-        thour=ttime.tm_hour
-        tmin=ttime.tm_min
+        try:
+            z.run()
+            # z.stframe.to_csv(os.path.join(dir,'realtime_summary.csv'))
+            print z.stframe
+            ttime=time.localtime()
+            thour=ttime.tm_hour
+            tmin=ttime.tm_min
+        except:
+            err = traceback.format_exc()
+            logging.getLogger().error(">>realtime<<error when get realtime kline...%s"%err)
         if (thour > 15) or (thour == 15 and tmin > 5):
-            z1=getTenpercent.rtMonitor(z.redis)
+            z1=getTenpercent.rtMonitor()
             z1.runBatch()
             break
         time.sleep(40)

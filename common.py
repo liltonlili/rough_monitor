@@ -2,7 +2,7 @@
 from mysqldb import *
 import pandas as pd
 import datetime
-import os
+import traceback
 import numpy as np
 import tushare as ts
 import time
@@ -19,8 +19,7 @@ from matplotlib import *
 from matplotlib.font_manager import FontProperties
 from lxml import etree
 from selenium import webdriver
-sys.path.append("D:/projects/report_download/src/lib")
-import http_downloader
+import logging
 
 # myFmt = mpl.mdates.DateFormatter('%Y-%m-%d')
 myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
@@ -127,9 +126,9 @@ def get_ympair(sty,stm,eny,enm):
     return tlist
 
 def get_day(value,str_date):
-    calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+    calframe = pd.read_csv(os.path.join("D:\Money", "cal.csv"), header=None, names=['0', 'Time'], index_col=0)
+    calframe.reset_index(inplace=True)
     del calframe['0']
-    calframe.columns=['Time']
     daylist=list(calframe['Time'].values)
     date_value=calframe[calframe.Time<=str_date].tail(1).Time.values
     index=daylist.index(date_value)
@@ -154,9 +153,9 @@ class gm_date:
         self.month_list=[]
         tmp_y=self.sty
         tmp_m=self.stm
-        calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+        calframe = pd.read_csv(os.path.join("D:\Money", "cal.csv"), header=None, names=['0', 'Time'], index_col=0)
+        calframe.reset_index(inplace=True)
         del calframe['0']
-        calframe.columns=['Time']
         start_day=datetime.date(year=self.sty,month=self.stm,day=1).strftime("%Y/%m/%d")
         try:
             end_day=datetime.date(year=self.eny,month=self.enm,day=31).strftime("%Y/%m/%d")
@@ -184,9 +183,9 @@ class gm_date:
 def getDate(startdate,enddate):
     startdate = format_date(startdate,"%Y/%m/%d")
     enddate = format_date(enddate,"%Y/%m/%d")
-    calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+    calframe = pd.read_csv(os.path.join("D:\Money", "cal.csv"), header=None, names=['0', 'Time'], index_col=0)
+    calframe.reset_index(inplace=True)
     del calframe['0']
-    calframe.columns=['Time']
     calframe=calframe[(calframe.Time>=startdate) & (calframe.Time<=enddate)]
     calList=calframe['Time'].values
     return list(calList)
@@ -314,9 +313,10 @@ def get_tushare_frame(stoc,last_date,date,sqldb):
 
 # date为['2016-03-27'],output为['2016-03-26']
 def get_last_date(date):
-    calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+    calframe = pd.read_csv(os.path.join("D:\Money", "cal.csv"), header=None, names=['0', 'Time'], index_col=0)
+    calframe.reset_index(inplace=True)
     del calframe['0']
-    calframe.columns=['Time']
+    # calframe.head()
     format_str = format_date(date,"%Y/%m/%d")
     index=calframe[calframe.Time==format_str].index
     last_index=index-1
@@ -327,9 +327,9 @@ def get_last_date(date):
 
 # date为['2016-03-27'],output为['2016-03-26']
 def get_lastN_date(date,n):
-    calframe=pd.read_csv(os.path.join("D:\Money","cal.csv"))
+    calframe = pd.read_csv(os.path.join("D:\Money", "cal.csv"), header=None, names=['0', 'Time'], index_col=0)
+    calframe.reset_index(inplace=True)
     del calframe['0']
-    calframe.columns=['Time']
     format_str=format_date(date,"%Y/%m/%d")
     # print format_str
     index=min(calframe[calframe.Time >= format_str].index)
@@ -432,7 +432,8 @@ def get_little_sina_data(slist):
     except:
         while True:
             try:
-                ip = http_downloader.get_proxyip(dynamic=False)
+                # ip = http_downloader.get_proxyip(dynamic=False)
+                ip = {"host":"123", "port":2345}
                 proxies = {'http':'http://{}:{}'.format(ip['host'], ip['port'])}
                 r=requests.get(url, proxies=proxies)
                 content=r.content.decode('gbk')
@@ -737,7 +738,6 @@ def showinfos(message):
     root.mainloop()
     print "will return"
 
-
 def get_realtime_news(stock):
     count = 3
     news = ""
@@ -746,10 +746,16 @@ def get_realtime_news(stock):
     else:
         refer = "http://www.yuncaijing.com/quote/sz%s.html"%stock
     headers = {
-        "Accept":"application/json, text/javascript, */*; q=0.01",
+        "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
         "Accept-Encoding":"gzip, deflate",
-        "Content-Type":"application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept - Language": "zh-CN, zh;q=0.9",
+        "Cache - Control": "max-age=0",
+        "Connection": "keep-alive",
+        # "Content-Type":"application/x-www-form-urlencoded; charset=UTF-8",
+        "Cookie":"ycj_wafsid=wafsid_d51d44e2af7c238cc1126e6b33664872; UM_distinctid=16377543fcf35f-0ea74d71f68914-3c3c5905-144000-16377543fd2459; CNZZDATA1260793810=385565469-1526714693-%7C1526714693; PHPSESSID=grotcc8ek0t5ijeea11ragqvl5; ycj_uuid=75e4686a145fcbf4766febb1b0c0603f; ycj_locate=aHR0cDovL3d3dy55dW5jYWlqaW5nLmNvbS8%3D; YUNSESSID=5g39gdp68lkdu4225l92h5e0a0; Hm_lvt_b68ec780c488edc31b70f5dadf4e94f8=1526715428; ycj_from_url=aHR0cDovL3d3dy55dW5jYWlqaW5nLmNvbS9xdW90ZS9zaDYwMDAzNi5odG1s; Hm_lpvt_b68ec780c488edc31b70f5dadf4e94f8=1526716841; CNZZDATA1257026985=1605694937-1526715428-http%253A%252F%252Fwww.yuncaijing.com%252F%7C1526716840",
         "Host":"www.yuncaijing.com",
+        "Pragma": "no-cache",
+        "Upgrade-Insecure-Requests":"1",
         "Origin":"http://www.yuncaijing.com",
         "Referer":"http://www.yuncaijing.com/quote/sz002436.html",
         "X-Requested-With":"XMLHttpRequest",
@@ -758,12 +764,13 @@ def get_realtime_news(stock):
     datas = {
         "code":stock
     }
-    # datas = "code=002436"
     url = "http://www.yuncaijing.com/stock/get_lines/yapi/ajax.html"
-    proxies = {'http':'http://10.20.205.162:1080'}
-    r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
-    # r = requests.post(url = url, headers=headers, data=datas)
+    # proxies = {'http':'http://10.20.205.162:1080'}
+    # r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
+    r = requests.post(url=url, headers=headers, data=datas)
+    # r = requests.get(url = url, headers=headers)
     while r.status_code != 200 or count < 0:
+        logging.getLogger().warning("【trace_yesterday】yuncaijing requests failed!!!")
         r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
         count -= 1
@@ -785,15 +792,16 @@ def get_hist_news(stock):
         "Origin":"http://www.yuncaijing.com",
         "Referer":"http://www.yuncaijing.com",
         "X-Requested-With":"XMLHttpRequest",
+        "Cookie": "ycj_wafsid=wafsid_d51d44e2af7c238cc1126e6b33664872; UM_distinctid=16377543fcf35f-0ea74d71f68914-3c3c5905-144000-16377543fd2459; CNZZDATA1260793810=385565469-1526714693-%7C1526714693; PHPSESSID=grotcc8ek0t5ijeea11ragqvl5; ycj_uuid=75e4686a145fcbf4766febb1b0c0603f; ycj_locate=aHR0cDovL3d3dy55dW5jYWlqaW5nLmNvbS8%3D; YUNSESSID=5g39gdp68lkdu4225l92h5e0a0; Hm_lvt_b68ec780c488edc31b70f5dadf4e94f8=1526715428; ycj_from_url=aHR0cDovL3d3dy55dW5jYWlqaW5nLmNvbS9xdW90ZS9zaDYwMDAzNi5odG1s; Hm_lpvt_b68ec780c488edc31b70f5dadf4e94f8=1526716841; CNZZDATA1257026985=1605694937-1526715428-http%253A%252F%252Fwww.yuncaijing.com%252F%7C1526716840",
         "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:49.0) Gecko/20100101 Firefox/49.0"
     }
     datas = {
         "code":stock
     }
     url = "http://www.yuncaijing.com/stock/get_klines/yapi/ajax.html"
-    proxies = {'http':'http://10.20.205.162:1080'}
-    r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
-    # r = requests.post(url = url, headers = headers, data=datas)
+    # proxies = {'http':'http://10.20.205.162:1080'}
+    # r = requests.post(url = url, headers = headers, data=datas, proxies=proxies)
+    r = requests.post(url = url, headers = headers, data=datas)
     while r.status_code != 200 or count < 0:
         r = requests.post(url = url, headers = headers, data=datas)
         time.sleep(5)
@@ -825,6 +833,28 @@ def parse_news(jsonContent):
             count -= 1
     return news
 
+# 金融界上面的复盘信息, json格式
+def get_jrj_dict(tdate):
+    tdate = format_date(tdate, '%Y-%m-%d')
+    url = 'http://stock.jrj.com.cn/share/news/zhangting/%s.js'%tdate
+    r = requests.get(url)
+    if r.status_code != 200:
+        logging.getLogger().error(u'【金融界dict获取失败, %s】'%tdate)
+        return
+    content = json.loads(r.content.replace('var zhangting=', '').replace(";",""))
+    news_dict = {}
+    for tickers_dict in content['newsinfo']:
+        try:
+            reason = tickers_dict['content']
+            concept = tickers_dict['keyword']
+            for ticker in tickers_dict['stockcode'].split(","):
+                news_dict[ticker] = [concept, reason]
+        except:
+            pass
+    return news_dict
+
+
+
 
 # 得到金融界上面的复盘信息，比云财经的要精确
 def get_jrj_news():
@@ -850,60 +880,130 @@ def get_jrj_news():
             pass
     return news_dict
 
-
-# 得到选股宝上面的复盘信息
-def get_xgb_news():
-    bs = webdriver.Ie()
-
-    user = "18221231806"
-    passwd = "Window6210"
-
-    bs.get("http://www.xuangubao.cn/ban/0")
-    # 登录
+## 从这里重构，拿到选股宝的涨跌停list，到getTenpercent的86行进行比对
+# 得到选股宝上面的复盘信息, 通過瀏覽器的方式做的
+# return: {"ZT":{"stockid":[reason, reason], "stockid":[reason, reason], ...}, "DT":{}, "YZT":{}, ...}
+def get_xgb_news_browser():
     try:
-        bs.find_element_by_xpath('//div[@class="nav-right"]/span')[0].click()
-        elem = bs.find_element_by_xpath('//input[@class="login-item-input login-phone-input"]')[0]
-        elem.send_keys(user)
+        bs = webdriver.Ie()
 
-        elem = bs.find_element_by_xpath('//input[@class="login-item-input login-setpwd-input"]')[0]
-        elem.send_keys(passwd)
-        bs.find_element_by_xpath('//div[@class="login-btn"]').click()
+        user = "18221231806"
+        passwd = "Window6210"
+
+        bs.get("https://xuangubao.cn/dingpan/0")
+        # 登录
+        try:
+            bs.find_element_by_xpath('//div[@class="nav-right"]/span')[0].click()
+            elem = bs.find_element_by_xpath('//input[@class="login-item-input login-phone-input"]')[0]
+            elem.send_keys(user)
+
+            elem = bs.find_element_by_xpath('//input[@class="login-item-input login-setpwd-input"]')[0]
+            elem.send_keys(passwd)
+            bs.find_element_by_xpath('//div[@class="login-btn"]').click()
+        except:
+            pass
+        news_dict = {"ZT": {}, "DT": {}, "HD": {}, "YZT": {}, "XG": {}, "CX":{}, "QS":{}}
+        map_relation = {"1": "ZT", "2": "HD", "3": "XG", "4": "CX", "6": "DT", "7": "YZT", "5":"QS"}
+        for x in range(1, 8):
+            if x in [3,4,6]:
+                continue
+            url = 'https://xuangubao.cn/dingpan/'+str(x)
+            attr = map_relation[str(x)]
+            bs.get(url)
+            time.sleep(5)
+            r = etree.HTML(bs.page_source)
+
+            # 解析数据
+            zt_datas = r.xpath('//tbody[@class="table hit-pool__table-body"]/tr')
+            for zt_data in zt_datas:
+                try:
+                    reason = zt_data.xpath('./td[3]/span/span/text()')[0].replace(u" ", u"")
+                    stockid = zt_data.xpath('./td[2]/@target')[0].replace(".SZ","").replace(".SS","")
+                    news_dict[attr][stockid] = [reason, reason]
+                except:
+                    pass
+        bs.close()
+        logging.getLogger().info("【collect xuangubao info Successfully】")
     except:
-        pass
+        err = traceback.format_exc()
+        logging.getLogger().info("【collect xuangubao info Fail】%s" % err)
+        raise Exception(err)
+    return news_dict
+
+# 得到选股宝上面的复盘信息, 通過API的方式做的
+# return: {"ZT":{"stockid":[reason, reason], "stockid":[reason, reason], ...}, "DT":{}, "YZT":{}, ...}
+def get_xgb_news():
+    map_dict = {
+        "ZT":"board",
+        'HD':"boom",
+        'QS':"multi"
+    }
     news_dict = {}
-
-    for url in ['http://www.xuangubao.cn/ban/0', 'http://www.xuangubao.cn/ban/1',
-                'http://www.xuangubao.cn/ban/4']:
-        bs.get(url)
-        time.sleep(5)
-        r = etree.HTML(bs.page_source)
-
-        # 解析数据
-        zt_datas = r.xpath('//tbody[@class="table hit-pool__table-body"]/tr')
-        for zt_data in zt_datas:
+    for info_type in ['ZT', 'HD', 'QS', 'YZT', 'DT']:
+        news_dict[info_type] = {}
+        if info_type not in ['YZT', 'DT']:
+            url = 'https://wows-api.wallstreetcn.com/v2/sheet/%s_stock'%(map_dict[info_type])
+        elif info_type == 'YZT':
+            url = 'https://wows-api.wallstreetcn.com/v3/saga/pool/board-preday'
+        elif info_type == 'DT':
+            url = 'https://wows-api.wallstreetcn.com/v3/saga/pool/board-down'
+        else:
+            url = 'www.baidu.com'
+        r = requests.get(url)
+        if r.status_code != 200:
+            logging.getLogger().error(u'【选股宝dict获取失败】')
+            return
+        content = json.loads(r.content)
+        for ticker_info in content['data']['items']:
             try:
-                reason = zt_data.xpath('./td[3]/span/span/text()')[0]
-                stockid = zt_data.xpath('./td[2]/@target')[0].replace(".SZ","").replace(".SS","")
-                news_dict[stockid] = [reason, reason]
+                stockid = ticker_info[0].split(".")[0]
+                reason = ticker_info[2]
+                news_dict[info_type][stockid] = [reason, reason]
             except:
                 pass
-    bs.close()
+    return news_dict
+
+
+# 得到选股宝的历史复盘信息
+# return: {"ZT":{"stockid":[reason, reason], "stockid":[reason, reason], ...}, "DT":{}, "YZT":{}, ...}
+def get_long_xgb_news(tdate):
+    tdate = format_date(tdate, "%Y%m%d")
+    map_dict = {
+        "ZT":"board",
+        'HD':"boom",
+        'QS':"multi"
+    }
+    news_dict = {}
+    for info_type in ['ZT', 'HD', 'QS', 'YZT']:
+        news_dict[info_type] = {}
+        if info_type not in ['YZT', 'DT']:
+            url = 'https://wows-api.wallstreetcn.com/v2/sheet/%s_stock?filter=true&date=%s'%(map_dict[info_type], tdate)
+        elif info_type == 'YZT':
+            url = 'https://wows-api.wallstreetcn.com/v3/saga/pool/board-preday?date=%s' % tdate
+        elif info_type == 'DT':
+            url = 'https://wows-api.wallstreetcn.com/v3/saga/pool/board-down?date=%s' % tdate
+        else:
+            url = 'www.baidu.com'
+        r = requests.get(url)
+        if r.status_code != 200:
+            logging.getLogger().error(u'【选股宝dict获取失败, %s】' % tdate)
+            return
+        content = json.loads(r.content)
+        for ticker_info in content['data']['items']:
+            try:
+                stockid = ticker_info[0].split(".")[0]
+                reason = ticker_info[2]
+                news_dict[info_type][stockid] = [reason, reason]
+            except:
+                pass
     return news_dict
 
 
 
-
-
-
-
 def get_latest_news(stock):
-    stock = '0'*(6-len(stock))+stock
+    stock = str(stock).zfill(6)
     count = 10
     print "get news for %s" % stock
-    real_content = ''
-    hist_content = ''
-    # tmp
-    # return ""
     try:
         # 首先看实时新闻
         real_content = get_realtime_news(stock)
@@ -976,7 +1076,7 @@ def get_daily_frame(code, start_date, end_date, id_type = 1):
         idxsql = "SELECT TICKER_SYMBOL, SEC_SHORT_NAME, TRADE_DATE, PRE_CLOSE_INDEX, OPEN_INDEX, HIGHEST_INDEX, LOWEST_INDEX, CLOSE_INDEX, \
         TURNOVER_VOL from vmkt_idxd where TRADE_DATE >= '%s' and TRADE_DATE <='%s' and TICKER_SYMBOL = '%s'"%(start_date,end_date,idxcode)
         sub = get_mysqlData_sqlquery(idxsql)
-        sub.columns=[["TICKER_SYMBOL", "SEC_SHORT_NAME", "TRADE_DATE", "PRE_CLOSE_PRICE", "OPEN_PRICE", "HIGHEST_PRICE", "LOWEST_PRICE", "CLOSE_PRICE", "DEAL_AMOUNT"]]
+        sub.columns=["TICKER_SYMBOL", "SEC_SHORT_NAME", "TRADE_DATE", "PRE_CLOSE_PRICE", "OPEN_PRICE", "HIGHEST_PRICE", "LOWEST_PRICE", "CLOSE_PRICE", "DEAL_AMOUNT"]
     add_mean(sub)
     return sub
 
@@ -1036,7 +1136,7 @@ def get_minly_tushare_frame(stockid, endDate, id_type =1):
         zframe['vwap'] = vwap
         zframe['exchangecd'] = exchangecd
         zframe['shortnm'] = shortnm
-        zframe.reset_index(len(zframe), inplace=True)
+        zframe.reset_index(inplace=True)
         zframe.columns = ['bartime', 'closeprice', 'volume', 'datadate', 'ticker', 'secoffset', 'openprice', 'highprice','lowprice','value', 'vwap', 'exchangecd', 'shortnm']
         return zframe
 
@@ -1383,3 +1483,40 @@ def resee_info_gjsh(tdate=datetime.datetime.today().strftime("%Y%m%d")):
             t_count -= 1
             time.sleep(3)
     return status
+
+# 将概念的相似值作为key，便于不用记住到底是雄安还是雄安新区为主key
+# u'主概念':[u'分概念1', u'分概念2'], 返回的是: {"分概念1":"主概念", "分概念2":"主概念"}
+def get_value_close_concept(filepath = u'D:/Money/modeResee/彼战/盟军列表.txt'):
+    value_dict = {}
+    match_dict = {}
+    with open(filepath, 'rb') as fhandler:
+        x = fhandler.read()
+        x = x.decode('gbk')
+        concept_dict = eval(x)
+        for tkey in concept_dict.keys():
+            # 通用匹配型
+            if tkey[0] == 'm':
+                concept_name = tkey.replace("m", "")
+                for tvalue in concept_dict[tkey]:
+                    match_dict[tvalue] = concept_name
+            else:
+                for tvalue in concept_dict[tkey]:
+                    value_dict[tvalue] = tkey
+    return value_dict, match_dict
+
+
+close_concept_value_dict, match_concept_value_dict = get_value_close_concept()
+
+# 根据盟军.txt的key作为最顶级概念域名
+def get_top_dns_concept(conceptname):
+    conceptname = conceptname.strip()
+    # 直接匹配，看在不在被代替的list中
+    if conceptname in close_concept_value_dict.keys():
+        real_concept = close_concept_value_dict[conceptname]
+        conceptname = real_concept
+    else:
+        for tkey in match_concept_value_dict.keys():
+            if tkey in conceptname:
+                conceptname = match_concept_value_dict[tkey]
+                break
+    return conceptname

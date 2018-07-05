@@ -86,7 +86,7 @@ class BuyMonitor:
         zframe = zframe[['stcid','close']]
         zframe.set_index('stcid',inplace=True)
         dframe = pd.concat([dframe,zframe],axis=1)
-        dframe.reset_index(len(dframe),inplace=True)
+        dframe.reset_index(inplace=True)
         dframe.columns = ['stcid','Hprice','close']
         dframe['hrate'] = dframe['close'].astype(np.float64)/dframe['Hprice'].astype(np.float64)
         dmframe = dframe[dframe.hrate > 0.95]

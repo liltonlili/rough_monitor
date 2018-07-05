@@ -6,30 +6,39 @@ import numpy as np
 import os
 import datetime
 import time
-import requests
-from pandas import DataFrame,Series
+from pandas import DataFrame
 import pymongo
 import common
 import redis
 import LearnFrom
 import matplotlib.pyplot as plt
-
+import traceback
 import matplotlib as mpl
 from matplotlib import *
 from matplotlib.font_manager import FontProperties
+import logging
+logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)s] %(threadName)s Line:%(lineno)d - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S.000',
+                        filename='D:/Money/daily_logs/daily-summry.log',
+                        filemode='a')
+
 myfont = mpl.font_manager.FontProperties(fname=os.path.join(u'C:/Windows/Fonts','wqy-microhei.ttc'))
 
 class top_statistic:
     def __init__(self, day = datetime.date.today().strftime("%Y%m%d"), force_dump=0):
-        # day = "20170519"
         cday = common.format_date(day, "%Y/%m/%d")
         self.force_dump = force_dump
         self.today = common.format_date(day, "%Y%m%d")
+        logging.getLogger().info("【%s,trace_yesterday|top_statistic】 running..."%self.today)
         self.redis = redis.Redis(host='localhost', port=6379, db=1)
+        self.disable_png = False
+        self.today_flag = True
         # 如果不是当天，则需要重新写redis的值
         actual_day = datetime.date.today()
         actual_day = common.format_date(actual_day, "%Y%m%d")
         if self.today != actual_day:
+            self.today_flag = False
             self.redis_history_value(self.today)
 
         yesterday = common.get_last_date(cday)
@@ -40,11 +49,18 @@ class top_statistic:
         ## get info of yesterday
         mongo_url = "localhost"
         self.mongodb = pymongo.MongoClient(mongo_url)
-        self.up10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['actulZtStocks'].split("_")
-        self.hi10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['HD_stocks'].split("_")
-        self.low10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['LD_stocks'].split("_")
-        self.dn10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['DT_stocks'].split("_")
-        self.count=0
+        try:
+            self.up10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['actulZtStocks'].split("_")
+            self.hi10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['HD_stocks'].split("_")
+            self.low10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['LD_stocks'].split("_")
+            self.dn10_list = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday_mongo})['DT_stocks'].split("_")
+            self.count=0
+        except:
+            logging.getLogger().error("【%s,trace yesterday】 Break down...(no yesterday ZDT records)"%self.today)
+            raise Exception("No yesterday ZDT records")
+
+    def disablize_png(self):
+        self.disable_png = True
 
     #           TICKER_SYMBOL SEC_SHORT_NAME  TRADE_DATE  PRE_CLOSE_PRICE  OPEN_PRICE  \
     # 0        000001           平安银行  2017-02-27             9.50        9.50
@@ -174,6 +190,7 @@ class top_statistic:
             print Sframe            ##实时显示当前情况
             self.count+=1
             time.sleep(30)
+        logging.getLogger().info(("【%s,trace_yesterday】All Finished..."%self.today))
 
     # 计算连板个数
     def calCons(self):
@@ -182,48 +199,53 @@ class top_statistic:
         print "calculate continus number finished!"
 
     def genCsv(self):
-        ttime=time.localtime()
-        thour=ttime.tm_hour
-        tmin=ttime.tm_min
-        while 1:
-            detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
-            if u'actulZtStocks' in detailinfos.keys():
-                break
-            else:
-                time.sleep(60)
-        if (thour < 18):
-            ##生成daydayup.csv,用来复盘
-            Aframe = self.get_csv(detailinfos, png_enable = 0)
-            Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
+        try:
+            ttime=time.localtime()
+            thour=ttime.tm_hour
+            tmin=ttime.tm_min
+            while 1:
+                detailinfos = self.mongodb.stock.ZDT_by_date.find_one({"date":self.today})
+                if u'actulZtStocks' in detailinfos.keys():
+                    break
+                else:
+                    time.sleep(60)
+                    logging.getLogger().warning("【%s, genCSV】Failed to get ztstocks, waiting 60s..."%self.today)
+            if (thour < 18):
+                ##生成daydayup.csv,用来复盘
+                Aframe = self.get_csv(detailinfos, png_enable = 0)
+                Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
+                # 将每日的csv copy到复盘目录中
+                c_date = self.today
+                constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
+                Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
+                print "Generate daydayup csv finished!"
+
+            while True:
+                ttime=time.localtime()
+                thour=ttime.tm_hour
+                tmin=ttime.tm_min
+                # if (thour > 17) or (thour == 17 and tmin > 5):
+                if (thour > 18) or (thour == 18 and tmin > 5) or self.force_dump == 1:
+                    Aframe = self.get_csv(detailinfos, png_enable = 1)
+                    Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
+                    break
+                else:
+                    print "Sleeping"
+                    time.sleep(1800)
+
             # 将每日的csv copy到复盘目录中
             c_date = self.today
             constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
             Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
-            print "Generate daydayup csv finished!"
 
-        while True:
-            ttime=time.localtime()
-            thour=ttime.tm_hour
-            tmin=ttime.tm_min
-            # if (thour > 17) or (thour == 17 and tmin > 5):
-            if (thour > 18) or (thour == 18 and tmin > 5) or self.force_dump == 1:
-                Aframe = self.get_csv(detailinfos, png_enable = 1)
-                Aframe.to_csv(os.path.join("D:\Money\modeResee","daydayup.csv"),encoding='gb18030')
-                break
-            else:
-                print "Sleeping"
-                time.sleep(1800)
-
-        # 将每日的csv copy到复盘目录中
-        c_date = self.today
-        constant_dir = os.path.join(u'D:/Money/modeResee/复盘', c_date)
-        Aframe.to_csv(os.path.join(constant_dir, "daydayup.csv"),encoding='gb18030')
-
-        # 生成 "bat"， 用来复盘后生成html文件
-        with open(os.path.join(constant_dir, u"part1.bat"), 'wb') as fHandler:
-            fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\intelligent_eye.py")
-            # fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\manage_cache_L1.py")
-
+            # 生成 "bat"， 用来复盘后生成html文件
+            with open(os.path.join(constant_dir, u"part1.bat"), 'wb') as fHandler:
+                fHandler.write(ur"@start cmd /k python D:\Money\lilton_code\Market_Mode\rocketup\strategy\intelligent_eye.py")
+            logging.getLogger().info("【%s, genCsv function Successfully】" % self.today)
+        except:
+            err = traceback.format_exc()
+            logging.getLogger().error("【%s, genCsv function Error】%s" % (self.today, err))
+            raise Exception(err)
 
     def get_csv(self, detailinfos, png_enable = 0):
         ztStocks = detailinfos['actulZtStocks'].split("_")
@@ -232,18 +254,17 @@ class top_statistic:
         holeStocks = detailinfos['holeList'].split("_")
         hdStocks = detailinfos['HD_stocks'].split("_")
 
-        # 拿到数据库中股金神话的复盘信息
-        # 由于股金神话暂停了，所以暂时不再拿复盘信息
-        self.gjsh_mirror_info = {}
-        # gjsh_mirror_info = self.mongodb.stock.mirror_info.find({"date":self.today, "source":"GJSH_B"})
-        # if gjsh_mirror_info.count() > 0:
-        #     self.gjsh_mirror_info = gjsh_mirror_info[0]
-        # else:
-        #     self.gjsh_mirror_info = {}
 
         # 拿到金融界上的news和复盘信息, dict为：{stockid:[concept, reason]}
-        stock_news_dict = common.get_jrj_news()
-        xgb_stock_news_dict = common.get_xgb_news()
+        if self.today_flag:
+            stock_news_dict = common.get_jrj_news()
+        else:
+            stock_news_dict = common.get_jrj_dict(self.today)
+        # 选股宝上的news和复盘信息,dict为{"ZT":{"stockid":[reason, reason], "stockid":[reason, reason]}, "DT":{}, "ZDT":{},...}
+        if self.today_flag:
+            xgb_stock_news_dict = common.get_xgb_news()
+        else:
+            xgb_stock_news_dict = common.get_long_xgb_news(self.today)
         i = 0
         Aframe=DataFrame()
         c_date = self.today
@@ -271,7 +292,6 @@ class top_statistic:
 
                 # 先获得对于的group以及stocklist
                 [group, group_stocklist] = common.find_concept(stockid, self.today)
-                # print group_stocklist
                 if len(group_stocklist) > 8:  # 太长了显示出来也没用
                     anotation = "too long"
                 else:
@@ -280,13 +300,30 @@ class top_statistic:
                     anotation = ",".join(anotation_list)
 
                 # 从L1, L2中得到的group为空，且金融界有相关的group，则用金融界的记录
-                if len(group_stocklist) < 1 and stockid in stock_news_dict.keys():
-                    group = stock_news_dict[stockid][0]    # 说明数据库还没记录概念，但金融界网站已经记录了
+                jrj_group = ""
+                if stockid in stock_news_dict.keys():
+                    jrj_group = stock_news_dict[stockid][0]    # 说明数据库还没记录概念，但金融界网站已经记录了
 
-                # 如果还是没有，则选用选股宝的信息
-                if len(group)<1 and stockid in xgb_stock_news_dict.keys():
-                    group = xgb_stock_news_dict[stockid][0].split("|")[0].replace("+", "_")
+                # 选股宝的信息
+                xgb_group = ""
+                for attr in xgb_stock_news_dict.keys():
+                    if stockid in xgb_stock_news_dict[attr].keys():
+                        xgb_group = xgb_stock_news_dict[attr][stockid][0].split("|")[0].replace("+", "_")
+                        break
 
+                group_all = [group, jrj_group, xgb_group]
+                group_all = "_".join([x for x in group_all if x != ''])
+                group_elem_list = group_all.split("_")  # 如选股宝的group中自带_
+
+                group_elem_list = list(set(group_elem_list))
+                group_elem_list = [x.split("|")[0].replace(" ", "") for x in group_elem_list if len(x.replace(" ", ""))>0]
+                group_elem_list = [x.split(u"|")[0].replace(" ", "") for x in group_elem_list if len(x.replace(" ", "")) > 0]
+                group_elem_list = [x.replace(u"概念股", u"").replace(u'概念', u'') for x in group_elem_list]
+                group_elem_list = list(set(group_elem_list))
+
+                # 换成盟军列表的概念
+                group_elem_list = [common.get_top_dns_concept(x).strip() for x in group_elem_list]
+                group = "_".join(list(set(group_elem_list)))
 
                 # 将概念和相关股票打印进去
                 Aframe.loc[i, 'group'] = group
@@ -296,32 +333,31 @@ class top_statistic:
                 Aframe.loc[i, 'inL2'] = inL2
                 Aframe.loc[i, 'anotation'] = anotation
                 Aframe.loc[i, 'reason2'] = ''
-                news = common.get_latest_news(stockid)
+                if self.today_flag:
+                    news = common.get_latest_news(stockid)
+                else:
+                    news = ''
 
+                # 云财经上的信息没有
+                if len(news.replace(" ", "")) == 0:
+                    # 将选股宝的信息整合
+                    if stockid in xgb_stock_news_dict.keys():
+                        Aframe.loc[i, 'source_xgb'] = xgb_stock_news_dict[stockid][0]
+                        news += "%s\n%s" % (xgb_stock_news_dict[stockid][0], news)
 
-                # 将选股宝的信息整合
-                if stockid in xgb_stock_news_dict.keys():
-                    Aframe.loc[i, 'source_xgb'] = xgb_stock_news_dict[stockid][0]
-                    news = "%s\n%s" % (xgb_stock_news_dict[stockid][0], news)
-
-                # 将股金神话的信息整合
-                if stockid in self.gjsh_mirror_info.keys():
-                    Aframe.loc[i, 'source_gjsh'] = self.gjsh_mirror_info[stockid]['reason']
-                    big_concept = ""
-                    if 'big_concept' in self.gjsh_mirror_info[stockid].keys():
-                        big_concept = self.gjsh_mirror_info[stockid]['big_concept']
-                    news = "%s\n%s\n%s" % (big_concept, self.gjsh_mirror_info[stockid]['reason'], news)
-
-
-                # 将金融界的信息整合
-                if stockid in stock_news_dict.keys():
-                    news = "%s\n%s" % (stock_news_dict[stockid][1], news)
+                    if len(news.replace(" ", "")) == 0:
+                        # 将金融界的信息整合
+                        if stockid in stock_news_dict.keys():
+                            news += "%s\n%s" % (stock_news_dict[stockid][1], news)
 
                 Aframe.loc[i, 'news'] = news
                 if png_enable == 1:
                     # 暂时不管，数据有问题
                     # pass
-                    generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
+                    if stockid == '000010':
+                        pass
+                    if self.today_flag or self.disable_png:
+                        generate_fp_pic(stockid, constant_dir, Aframe.loc[i,'news'], self.today)
                 i += 1
         return Aframe
 
@@ -329,7 +365,7 @@ class top_statistic:
 def generate_fp_pic(stockid, dir, news, endDate):
     if len(str(stockid)) <3:
         return
-    print stockid
+
     fig = plt.figure(figsize=(16,8))
 
     # 画个股分时图
@@ -337,61 +373,73 @@ def generate_fp_pic(stockid, dir, news, endDate):
     # endDate = datetime.datetime.now().strftime("%Y%m%d")
     # endDate = "20161017"
     yesterday = common.get_lastN_date(endDate, 1)
+    try:
+        # 画出分时图，并标注涨幅
+        stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
+        yeframe = common.get_mysqlData([stockid],[yesterday])
+        if len(yeframe) > 0:
+            pre_close = yeframe.loc[0,'CLOSE_PRICE']
+        else:
+            pre_close = 0
+        LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close = pre_close)
 
-    # 画出分时图，并标注涨幅
-    stock_dv = common.get_minly_frame(stockid, endDate, id_type =1)
-    yeframe = common.get_mysqlData([stockid],[yesterday])
-    if len(yeframe) > 0:
-        pre_close = yeframe.loc[0,'CLOSE_PRICE']
-    else:
-        pre_close = 0
-    LearnFrom.plot_dealDetail(stock_dv, ax1, rotation=30, fontsize=5, mount_flag=1, pre_close = pre_close)
+        [sname, sid] = common.QueryStockMap(id = stockid)
+        ax1.set_title(sname, fontproperties=myfont)
+        ax1.grid(True)
 
-    [sname, sid] = common.QueryStockMap(id = stockid)
-    ax1.set_title(sname, fontproperties=myfont)
-    ax1.grid(True)
+        ax5 = fig.add_subplot(233)
+        ax6 = fig.add_subplot(236)
+        point = 10
+        start_date = common.get_lastN_date(endDate, 120)
+        # 画上个股日线图
+        ggstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 1)
+        shstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 0)
+        LearnFrom.plot_candlestick(ggstock,ax5,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
+        LearnFrom.plot_candlestick(shstock,ax6,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
+        # 画上证分时图， 不标注涨幅
+        ax2 = fig.add_subplot(234)
+        sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
+        LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1)
+        ax2.grid(True)
 
-    ax5 = fig.add_subplot(233)
-    ax6 = fig.add_subplot(236)
-    point = 10
-    start_date = common.get_lastN_date(endDate, 120)
-    # 画上个股日线图
-    ggstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 1)
-    shstock = common.get_daily_frame(stockid, start_date, endDate, id_type = 0)
-    LearnFrom.plot_candlestick(ggstock,ax5,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
-    LearnFrom.plot_candlestick(shstock,ax6,point =point,mount_flag = 1,  rotation=30, fontsize=5)  # 个股日线图
-    # 画上证分时图， 不标注涨幅
-    ax2 = fig.add_subplot(234)
-    sh_dv = common.get_minly_frame(stockid, endDate, id_type =0)
-    LearnFrom.plot_dealDetail(sh_dv, ax2, rotation=30, fontsize=5, mount_flag=1)
-    ax2.grid(True)
+        ax3 = fig.add_subplot(232)
+        ax4 = fig.add_subplot(235)
+        # 将新闻画在后面
+        texts = news.split("\n")
+        tn = len(texts)
 
-    ax3 = fig.add_subplot(232)
-    ax4 = fig.add_subplot(235)
-    # 将新闻画在后面
-    texts = news.split("\n")
-    tn = len(texts)
+        n1 = int(tn/2)
+        texts1 = texts[:n1]
 
-    n1 = int(tn/2)
-    texts1 = texts[:n1]
+        texts2 = texts[n1:]
+        n2 = tn - n1
+        common.plot_text(ax3, texts1, fontsize=8)
+        common.plot_text(ax4, texts2, fontsize=8)
+        plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
+    except Exception:
+        err = traceback.format_exc()
+        logging.getLogger().error('【Error when plot figure, %s, %s】'%(stockid, endDate))
 
-    texts2 = texts[n1:]
-    n2 = tn - n1
-    common.plot_text(ax3, texts1, fontsize=8)
-    common.plot_text(ax4, texts2, fontsize=8)
-    plt.savefig(os.path.join(dir,u'%s.png'%stockid), dpi=300)
 
 if __name__=="__main__":
-    # # 补历史
-    # dateStart = '20170517'
-    # dateEnd = '20170517'
-    # dateDicts = common.get_mongoDicts(dateStart=dateStart,dateEnd=dateEnd)
-    # for dateDict in dateDicts:
-    #     cdate=dateDict['date']
-    #     print cdate
-    #     z=top_statistic(day = cdate, force_dump = 1)
-    #     z.run()
+    # 补历史
+    dateStart = '20180610'
+    dateEnd = '20180619'
+    try:
+        # dateDicts = common.get_mongoDicts(dateStart=dateStart,dateEnd=dateEnd)
+        # for dateDict in dateDicts:
+        #     cdate=dateDict['date']
+        #     if os.path.exists(os.path.join(u'D:/Money/modeResee/复盘', cdate)):
+        #         continue
+        #     print cdate
+        #     z=top_statistic(day=cdate, force_dump=1)
+        #     z.run()
 
-    z=top_statistic(day=datetime.date.today().strftime("%Y%m%d"), force_dump=1)
-    # z=top_statistic(day="20170728", force_dump=1)
-    z.run()
+        z=top_statistic(day=datetime.date.today().strftime("%Y%m%d"), force_dump=1)
+        z.disablize_png()
+        # z=top_statistic(day="20180607", force_dump=1)
+        z.run()
+    except:
+        err = traceback.format_exc()
+        print err
+        sys.exit(1)

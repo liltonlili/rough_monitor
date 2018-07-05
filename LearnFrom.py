@@ -16,8 +16,8 @@ def add_mean(dframe):
         dframe['mean%s'%ma]=dframe['CLOSE_PRICE'].rolling(window=ma).mean()
 
 def plot_candlestick(sub,ax1,point =10, mount_flag = 0, direction = u'不买不卖', mark_date="", rotation=10, fontsize=10):
-    sub=sub[sub.LOWEST_PRICE > 0]
-    sub.reset_index(len(sub),inplace=True)
+    sub = sub[sub.LOWEST_PRICE > 0]
+    sub.reset_index(inplace=True)
     del sub['index']
 
     step = len(sub)/point
@@ -102,11 +102,11 @@ def plot_dealDetail(pframe,ax1,dtimes=[None],ddirections=[u'不买不卖'], pric
     if len(np.unique(dframe.exchangecd)) == 2:
         try:
             dframe=dframe[dframe.closeprice< 700]
-            dframe.reset_index(len(dframe),inplace=True)
+            dframe.reset_index(inplace=True)
             del dframe['index']
         except:
             dframe=dframe[dframe.lastprice< 700]
-            dframe.reset_index(len(dframe),inplace=True)
+            dframe.reset_index(inplace=True)
             del dframe['index']
 
     step = len(dframe)/point

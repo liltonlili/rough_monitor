@@ -8,15 +8,26 @@ import os
 import requests
 import time
 import numpy as np
-import multiprocessing
 import datetime
 import redis
+import traceback
 
 import pymongo
 
 frame_list=[]
+
+import logging
+logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(levelname)s] %(threadName)s Line:%(lineno)d - %(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S.000',
+                        filename='D:/Money/daily_logs/daily-summry.log',
+                        filemode='a')
+
+
 class rtMonitor:
-    def __init__(self, rediser):
+    def __init__(self, rediser=None):
+        if rediser is None:
+            rediser = redis.Redis(host='localhost', port=6379, db=1)
         self.redis = rediser
         self.stock_list = []
         self.get_stock_list()
@@ -45,72 +56,80 @@ class rtMonitor:
     def get_summarize_day(self):
         self.cdate =datetime.date.today().strftime("%Y-%m-%d")
         # self.cdate = "2017-02-17"
-        self.ttframe = self.get_price_frame()
-        self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
-        self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
-        self.ttframe.to_csv(os.path.join(self.dir,'daily_summary_%s.csv'%self.cdate))
-        self.utframe=self.ttframe[self.ttframe.close>=self.ttframe.up10]['stockid']       ##涨停
-        self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stockid']  ##高点涨停
-        self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stockid']       ##跌停
-        self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stockid']    ##低点跌停
-        s1=pd.DataFrame(self.utframe.values)
-        s2=pd.DataFrame(self.nuframe.values)
-        s3=pd.DataFrame(self.dtframe.values)
-        s4=pd.DataFrame(self.ndframe.values)
+        logging.getLogger().info("【%s, ZDT summary】Begin..." % self.cdate.replace("-", ""))
+        self.sframe = None
+        try:
+            self.ttframe = self.get_price_frame()
+            self.ttframe['up10']=(self.ttframe['preclose'].astype(np.float64)*1.1).round(2)
+            self.ttframe['dn10']=(self.ttframe['preclose'].astype(np.float64)*0.9).round(2)
+            self.ttframe.to_csv(os.path.join(self.dir,'daily_summary_%s.csv'%self.cdate))
+            self.utframe=self.ttframe[self.ttframe.close>=self.ttframe.up10]['stockid']       ##涨停
+            self.nuframe=self.ttframe[(self.ttframe.high==self.ttframe.up10) & (self.ttframe.high != self.ttframe.close)]['stockid']  ##高点涨停
+            self.dtframe=self.ttframe[self.ttframe.close==self.ttframe.dn10]['stockid']       ##跌停
+            self.ndframe=self.ttframe[(self.ttframe.low==self.ttframe.dn10) & (self.ttframe.low != self.ttframe.close)]['stockid']    ##低点跌停
+            s1=pd.DataFrame(self.utframe.values)
+            s2=pd.DataFrame(self.nuframe.values)
+            s3=pd.DataFrame(self.dtframe.values)
+            s4=pd.DataFrame(self.ndframe.values)
 
-        self.sframe=pd.concat([s1,s2,s3,s4],axis=1)
-        self.sframe.columns=['up10','high10','dn10','low10']
-        self.sframe.to_csv(os.path.join(self.dir,"%s_summary_results.csv"%self.cdate))
+            self.sframe=pd.concat([s1,s2,s3,s4],axis=1)
+            self.sframe.columns=['up10','high10','dn10','low10']
+            self.sframe.to_csv(os.path.join(self.dir,"%s_summary_results.csv"%self.cdate))
+        except:
+            e = traceback.format_exc()
+            logging.getLogger().error("【%s, ZDT summary ZD/DT/HD Error】,%s"%(self.cdate.replace("-",""), e))
         self.get_backsee(self.sframe)
 
-
     def get_backsee(self,sframe):
-        # step 1: write "ZT_stocks,ZT_num,DT_stocks,DT_num" base info to mongo
-        [dicts,ZT_list,DT_list,HD_list,LD_list]=self.baseInfo(sframe)
+        try:
+            # step 1: write "ZT_stocks,ZT_num,DT_stocks,DT_num" base info to mongo
+            [dicts,ZT_list,DT_list,HD_list,LD_list]=self.baseInfo(sframe)
 
-        # step 2: ZT/DT stocks, that got big amount
-        ZT_overMonut=self.overMount(ZT_list)
-        dicts['ZT_Mount']=ZT_overMonut
-        DT_overMonut=self.overMount(DT_list)
-        dicts['DT_Mount']=DT_overMonut
+            # step 2: ZT/DT stocks, that got big amount
+            # ZT_overMonut=self.overMount(ZT_list)
+            # dicts['ZT_Mount']=ZT_overMonut
+            # DT_overMonut=self.overMount(DT_list)
+            # dicts['DT_Mount']=DT_overMonut
 
-        # step 3: generate Add_newStocks, actulZtStocks, freshStocks, openedFreshedStocks
-        print dicts['date']
-        yesterday = common.get_last_date(dicts['date'])
-        yesterday = common.format_date(yesterday,"%Y%m%d")
-        yesResults = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday})
-        freshStocks = []
-        if yesResults.has_key("freshStocks"):
-            freshStocks = yesResults['freshStocks'].split("_")
+            # step 3: generate Add_newStocks, actulZtStocks, freshStocks, openedFreshedStocks
+            print dicts['date']
+            yesterday = common.get_last_date(dicts['date'])
+            yesterday = common.format_date(yesterday,"%Y%m%d")
+            yesResults = self.mongodb.stock.ZDT_by_date.find_one({"date":yesterday})
+            freshStocks = []
+            if yesResults.has_key("freshStocks"):
+                freshStocks = yesResults['freshStocks'].split("_")
 
-        yesterdayNewAddStocks = []
-        if yesResults.has_key("Add_newStocks"):
-            yesterdayNewAddStocks = yesResults['Add_newStocks'].keys()
+            yesterdayNewAddStocks = []
+            if yesResults.has_key("Add_newStocks"):
+                yesterdayNewAddStocks = yesResults['Add_newStocks'].keys()
 
 
-        ## 新股加入到mongo中，每天刷新一次
-        Collect_NewStocks.fresh_newStockWebsite()
-        todResults = self.mongodb.stock.ZDT_by_date.find_one({"date":dicts['date']})
-        newAddStocks = []
-        if todResults.has_key("Add_newStocks"):
-            newAddStocks = todResults['Add_newStocks'].keys()
+            ## 新股加入到mongo中，每天刷新一次
+            Collect_NewStocks.fresh_newStockWebsite()
+            todResults = self.mongodb.stock.ZDT_by_date.find_one({"date":dicts['date']})
+            newAddStocks = []
+            if todResults is not None and todResults.has_key("Add_newStocks"):
+                newAddStocks = todResults['Add_newStocks'].keys()
+                freshStocks.extend(newAddStocks)
+
+            ## 自然涨停股票
+            dicts['actulZtStocks'] = "_".join([x for x in dicts['ZT_stocks'].split("_") if x not in freshStocks])
+
+            ## 连续涨停的次新股
+            freshStocks = [x for x in freshStocks if x in dicts['ZT_stocks']]
+            # ZT_stocks可能不包含今日的股票（因为从tushare拿股票代码，不一定包括今天和昨天的新股， 可能还不包括前天的股票list）
             freshStocks.extend(newAddStocks)
+            freshStocks.extend(yesterdayNewAddStocks)
+            dicts['freshStocks'] = "_".join(list(set(freshStocks)))
 
-        ## 自然涨停股票
-        dicts['actulZtStocks'] = "_".join([x for x in dicts['ZT_stocks'].split("_") if x not in freshStocks])
-
-        ## 连续涨停的次新股
-        freshStocks = [x for x in freshStocks if x in dicts['ZT_stocks']]
-        # ZT_stocks可能不包含今日的股票（因为从tushare拿股票代码，不一定包括今天和昨天的新股， 可能还不包括前天的股票list）
-        freshStocks.extend(newAddStocks)
-        freshStocks.extend(yesterdayNewAddStocks)
-        dicts['freshStocks'] = "_".join(list(set(freshStocks)))
-
-        ## 开板次新股
-        dicts['openedFreshedStocks'] = "_".join([x for x in freshStocks if x not in dicts['ZT_stocks'] and x not in newAddStocks])
-        self.mongodb.stock.ZDT_by_date.update({"date":dicts['date']},{"$set":dicts},True)
-
-
+            ## 开板次新股
+            dicts['openedFreshedStocks'] = "_".join([x for x in freshStocks if x not in dicts['ZT_stocks'] and x not in newAddStocks])
+            self.mongodb.stock.ZDT_by_date.update({"date":dicts['date']},{"$set":dicts},True)
+            logging.getLogger().info("【getTenpercent summary】daily ZDT/actualZt. summary finished!")
+        except:
+            err = traceback.format_exc()
+            logging.getLogger().info("【getTenpercent summary】daily ZDT/actualZt. summary finished!")
 
 
     #放量股
@@ -128,7 +147,6 @@ class rtMonitor:
         return "_".join(Mlist)
 
 
-
     ## 基本信息
     # 	up10	high10	dn10	low10
     # 0	600803	600961	300028	600654
@@ -138,22 +156,55 @@ class rtMonitor:
     # 4	300484	603366	0	0
     def baseInfo(self,tframe):
         dicts={}
-        ZT_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['up10'].values if x>0]
-        DT_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['dn10'].values if x>0]
-        HD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['high10'].values if x>0]
-        LD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['low10'].values if x>0]
-        ZT_list = list(set(ZT_list))
-        DT_list = list(set(DT_list))
-        HD_list = list(set(HD_list))
-        LD_list = list(set(LD_list))
+        ZT_list = []
+        DT_list = []
+        HD_list = []
+        LD_list = []
+        try:
+            ZT_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['up10'].values if x>0]
+            DT_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['dn10'].values if x>0]
+            HD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['high10'].values if x>0]
+            LD_list=[str(int(x)) if (len(str(int(x)))==6) else'0'*(6-len(str(int(x))))+str(int(x)) for x in tframe['low10'].values if x>0]
+            ZT_list = list(set(ZT_list))
+            DT_list = list(set(DT_list))
+            HD_list = list(set(HD_list))
+            LD_list = list(set(LD_list))
 
-        dicts['ZT_num']=len(ZT_list)
-        dicts['DT_num']=len(DT_list)
-        dicts['ZT_stocks']="_".join(ZT_list)
-        dicts['DT_stocks']="_".join(DT_list)
-        dicts['HD_stocks']="_".join(HD_list)
-        dicts['LD_stocks']="_".join(LD_list)
-        dicts['date']=common.format_date(self.cdate,"%Y%m%d")
+            xgb_records = common.get_xgb_news()
+            xgb_zt_list = []
+            xgb_dt_list = []
+            xgb_hd_list = []
+
+            if len(xgb_records['ZT']) >0:
+                xgb_zt_list = xgb_records['ZT'].keys()
+
+            if len(xgb_records['DT']) > 0:
+                xgb_dt_list = xgb_records['DT'].keys()
+
+            if len(xgb_records['HD']) > 0:
+                xgb_hd_list = xgb_records['HD'].keys()
+
+            ZT_list.extend(xgb_zt_list)
+            ZT_list = list(set(ZT_list))
+            ZT_list = [x for x in ZT_list if len(x)>0]
+            DT_list.extend(xgb_dt_list)
+            DT_list = list(set(DT_list))
+            DT_list = [x for x in DT_list if len(x) > 0]
+
+            HD_list.extend(xgb_hd_list)
+            HD_list = list(set(HD_list))
+            HD_list = [x for x in HD_list if len(x) > 0]
+
+            dicts['ZT_num']=len(ZT_list)
+            dicts['DT_num']=len(DT_list)
+            dicts['ZT_stocks']="_".join(ZT_list)
+            dicts['DT_stocks']="_".join(DT_list)
+            dicts['HD_stocks']="_".join(HD_list)
+            dicts['LD_stocks']="_".join(LD_list)
+            dicts['date']=common.format_date(self.cdate,"%Y%m%d")
+        except Exception:
+            err = traceback.format_exc()
+            logging.getLogger().error("【%s, extrace ZDHL Error】%s"%(self.cdate, err))
         return [dicts,ZT_list,DT_list,HD_list,LD_list]
 
     def get_statistic(self,tframe):
